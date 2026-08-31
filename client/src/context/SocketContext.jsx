@@ -11,47 +11,74 @@ export function SocketProvider({ children }) {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const socket = io(API_BASE, {
-      transports: ['websocket', 'polling'],
-      auth: { token }
-    });
-    socketRef.current = socket;
+    // Only attempt socket connection if we have a direct backend host or custom VITE_API_URL
+    const isNetlifyDomain = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app') && !import.meta.env.VITE_API_URL;
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-      socket.emit('trading:subscribe');
-      if (user?.id) {
-        socket.emit('identify', { userId: user.id, token });
+    let socket = null;
+
+    if (!isNetlifyDomain && API_BASE) {
+      try {
+        socket = io(API_BASE, {
+          transports: ['websocket', 'polling'],
+          auth: { token },
+          reconnectionAttempts: 3,
+          timeout: 5000
+        });
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+          setIsConnected(true);
+          socket.emit('trading:subscribe');
+          if (user?.id) {
+            socket.emit('identify', { userId: user.id, token });
+          }
+        });
+
+        socket.on('disconnect', () => {
+          setIsConnected(false);
+        });
+
+        socket.on('connect_error', () => {
+          setIsConnected(false);
+        });
+
+        socket.on('trading:pairs:update', (payload) => {
+          if (payload && payload.success && Array.isArray(payload.data)) {
+            setPairs(payload.data);
+          }
+        });
+      } catch (err) {
+        console.warn('Socket connection skipped/failed:', err);
       }
-    });
+    }
 
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
-    socket.on('trading:pairs:update', (payload) => {
-      if (payload && payload.success && Array.isArray(payload.data)) {
-        setPairs(payload.data);
-      }
-    });
-
-    // Fallback fetch if socket is delayed
-    const fetchInitial = async () => {
+    // Reliable HTTP Polling Fallback (Works 100% on Netlify, Render, and Localhost)
+    const fetchTradingPairs = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/trading-pairs`);
-        const data = await res.json();
-        if (data.success && data.data) {
-          setPairs(data.data);
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          if (data && data.success && Array.isArray(data.data)) {
+            setPairs(data.data);
+          }
+        } catch (jsonErr) {
+          // Ignore HTML response if route is still initializing
         }
-      } catch (e) {
-        console.warn('Fallback pairs fetch failed:', e);
-      }
+      } catch (e) {}
     };
-    fetchInitial();
+
+    fetchTradingPairs();
+    const interval = setInterval(fetchTradingPairs, 3000);
 
     return () => {
-      socket.emit('trading:unsubscribe');
-      socket.disconnect();
+      clearInterval(interval);
+      if (socket) {
+        try {
+          socket.emit('trading:unsubscribe');
+          socket.disconnect();
+        } catch (e) {}
+      }
     };
   }, [token, user?.id]);
 

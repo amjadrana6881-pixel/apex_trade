@@ -38,7 +38,14 @@ export default function Login() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), password })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (jsonErr) {
+        throw new Error('Authentication service is initializing. Please try again.');
+      }
+
       if (data.success && data.token) {
         login(data.token, data.user);
         if (data.user?.role === 'admin') {
@@ -51,7 +58,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Unable to connect to server. Please check your internet connection.');
+      setError(err.message || 'Unable to connect to server. Please check your internet connection.');
     } finally {
       setLoading(false);
     }

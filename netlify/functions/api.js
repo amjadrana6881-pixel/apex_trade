@@ -16,25 +16,31 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static uploads
 app.use('/uploads', express.static(path.join(__dirname, '../../server/uploads')));
 
-// Mount all API Routes
-app.use('/api/auth', require('../../server/routes/auth'));
-app.use('/api', require('../../server/routes/trading'));
-app.use('/api/signals', require('../../server/routes/signals'));
-app.use('/api/wallet', require('../../server/routes/wallet'));
-app.use('/api/investments', require('../../server/routes/investments'));
-app.use('/api/wheel', require('../../server/routes/wheel'));
-app.use('/api/referral', require('../../server/routes/referral'));
-app.use('/api/announcements', require('../../server/routes/announcements'));
-app.use('/api/support', require('../../server/routes/support'));
-app.use('/api/admin', require('../../server/routes/admin'));
+// Universal API Router
+const apiRouter = express.Router();
+apiRouter.use('/auth', require('../../server/routes/auth'));
+apiRouter.use('/signals', require('../../server/routes/signals'));
+apiRouter.use('/wallet', require('../../server/routes/wallet'));
+apiRouter.use('/investments', require('../../server/routes/investments'));
+apiRouter.use('/wheel', require('../../server/routes/wheel'));
+apiRouter.use('/referral', require('../../server/routes/referral'));
+apiRouter.use('/announcements', require('../../server/routes/announcements'));
+apiRouter.use('/support', require('../../server/routes/support'));
+apiRouter.use('/admin', require('../../server/routes/admin'));
+apiRouter.use('/', require('../../server/routes/trading'));
 
-// Health Check
-app.get('/api/health', (req, res) => {
+apiRouter.get('/health', (req, res) => {
   res.json({
     status: 'online',
-    platform: 'ApexTrade Pro Options & Signals Platform (Netlify Serverless)',
+    platform: 'ApexTrade Pro Options & Signals Platform',
     timestamp: new Date().toISOString()
   });
 });
+
+// Mount on all possible Netlify serverless prefix variations
+app.use('/api', apiRouter);
+app.use('/.netlify/functions/api/api', apiRouter);
+app.use('/.netlify/functions/api', apiRouter);
+app.use('/', apiRouter);
 
 module.exports.handler = serverless(app);

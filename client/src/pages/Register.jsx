@@ -68,7 +68,14 @@ export default function Register() {
         body: JSON.stringify({ email: email.trim().toLowerCase() })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (jsonErr) {
+        throw new Error('Authentication service is initializing. Please try again in a few seconds.');
+      }
+
       if (data.success) {
         setGeneratedOtp(data.otp);
         setStep(2);
@@ -77,7 +84,7 @@ export default function Register() {
       }
     } catch (err) {
       console.error('Register OTP error:', err);
-      setError('Unable to connect to authentication server. Please try again.');
+      setError(err.message || 'Unable to connect to authentication server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -104,7 +111,14 @@ export default function Register() {
         })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (jsonErr) {
+        throw new Error('Verification service is initializing. Please try again.');
+      }
+
       if (data.success && data.token) {
         login(data.token, data.user);
         navigate('/dashboard');
@@ -113,7 +127,7 @@ export default function Register() {
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError('Unable to connect to authentication server. Please try again.');
+      setError(err.message || 'Unable to connect to authentication server. Please try again.');
     } finally {
       setLoading(false);
     }
