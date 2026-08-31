@@ -109,11 +109,11 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-5xl bg-white border border-slate-200/80 rounded-[32px] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6 lg:p-8">
+      <div className="w-full max-w-5xl bg-white border border-slate-200/80 rounded-3xl sm:rounded-[32px] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[600px]">
         
-        {/* Left Side: Brand Showcase & Institutional Security (5 cols) */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
+        {/* Left Side: Brand Showcase (Desktop only: hidden on mobile) */}
+        <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 lg:p-10 text-white flex-col justify-between relative overflow-hidden">
           {/* Subtle Background Glows */}
           <div className="absolute -top-24 -left-24 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -170,27 +170,27 @@ export default function ForgotPassword() {
           </div>
         </div>
 
-        {/* Right Side: Step-by-Step Recovery Form (7 cols) */}
-        <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-center">
-          <div className="max-w-md w-full mx-auto space-y-6">
+        {/* Right Side: Step-by-Step Recovery Form (Mobile first & immediately centered) */}
+        <div className="lg:col-span-7 p-5 sm:p-8 lg:p-12 flex flex-col justify-center">
+          <div className="max-w-md w-full mx-auto space-y-4 sm:space-y-6">
             
             {/* Top Navigation Back to Login */}
             <Link 
               to="/login"
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Sign In</span>
             </Link>
 
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-200">
+              <span className="hidden lg:inline-block px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-200">
                 PASSWORD RECOVERY
               </span>
-              <h2 className="text-2xl font-black text-slate-900 mt-1">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 mt-1">
                 {step === 1 ? 'Forgot your password?' : step === 2 ? 'Verify 6-Digit OTP' : 'Password Reset Complete!'}
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {step === 1 
                   ? 'Enter your registered email address and we will generate an instant OTP reset code.' 
                   : step === 2 
@@ -200,7 +200,7 @@ export default function ForgotPassword() {
             </div>
 
             {error && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-xs font-bold text-rose-700">
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs font-bold text-rose-700">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -208,18 +208,18 @@ export default function ForgotPassword() {
 
             {/* STEP 1: Enter Email */}
             {step === 1 && (
-              <form onSubmit={handleRequestOtp} className="space-y-4">
+              <form onSubmit={handleRequestOtp} className="space-y-3.5 sm:space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Registered Email Address</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Registered Email Address</label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
                       required
                       placeholder="trader@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-3.5 text-xs text-slate-900 focus:outline-none focus:border-blue-500 font-medium transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium transition-colors"
                     />
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function ForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all"
+                  className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all"
                 >
                   <span>{loading ? 'Generating Code...' : 'Send Verification OTP'}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -237,7 +237,7 @@ export default function ForgotPassword() {
 
             {/* STEP 2: Enter OTP & New Password */}
             {step === 2 && (
-              <form onSubmit={handleResetPassword} className="space-y-4">
+              <form onSubmit={handleResetPassword} className="space-y-3.5 sm:space-y-4">
                 
                 {/* Instant OTP Badge */}
                 {generatedOtp && (
@@ -258,7 +258,7 @@ export default function ForgotPassword() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">6-Digit OTP Code</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 text-center">6-Digit OTP Code</label>
                   <input
                     type="text"
                     required
@@ -266,36 +266,36 @@ export default function ForgotPassword() {
                     placeholder="123456"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-center text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:py-3 text-center text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="password"
                       required
                       placeholder="Min 6 characters"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Confirm New Password</label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="password"
                       required
                       placeholder="Re-enter password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
                     />
                   </div>
                 </div>
@@ -303,7 +303,7 @@ export default function ForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all"
+                  className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all"
                 >
                   <span>{loading ? 'Resetting Password...' : 'Save New Password & Log In'}</span>
                   <CheckCircle2 className="w-4 h-4" />
@@ -323,7 +323,7 @@ export default function ForgotPassword() {
                 </p>
                 <Link
                   to="/login"
-                  className="inline-flex items-center justify-center w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20"
+                  className="inline-flex items-center justify-center w-full py-3.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20"
                 >
                   Proceed to Sign In
                 </Link>
