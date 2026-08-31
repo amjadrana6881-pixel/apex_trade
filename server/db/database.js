@@ -6,24 +6,23 @@ const { v4: uuidv4 } = require('uuid');
 let db = null;
 let usePureJsFallback = false;
 
-// 1. Try loading native better-sqlite3
-try {
-  const Database = require('better-sqlite3');
-  let dbPath = path.join(__dirname, 'apextrade.db');
+const isServerless = Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
 
-  if (process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT) {
-    const tmpPath = path.join('/tmp', 'apextrade.db');
-    if (!fs.existsSync(tmpPath) && fs.existsSync(dbPath)) {
-      try { fs.copyFileSync(dbPath, tmpPath); } catch (e) {}
-    }
-    dbPath = tmpPath;
+// 1. Try loading native better-sqlite3 ONLY in non-serverless environment
+if (!isServerless) {
+  try {
+    const moduleName = 'better-sqlite3';
+    const Database = module.require(moduleName);
+    const dbPath = path.join(__dirname, 'apextrade.db');
+    db = new Database(dbPath);
+    try { db.pragma('journal_mode = WAL'); } catch (e) {}
+    console.log('✅ Native SQLite engine initialized successfully.');
+  } catch (nativeErr) {
+    console.warn('⚠️ Native SQLite driver not available. Falling back to Pure-JS engine...');
+    usePureJsFallback = true;
   }
-
-  db = new Database(dbPath);
-  try { db.pragma('journal_mode = WAL'); } catch (e) {}
-  console.log('✅ Native SQLite engine initialized successfully.');
-} catch (nativeErr) {
-  console.warn('⚠️ Native SQLite driver not supported in this serverless environment. Initializing Pure-JS Resilient Database Engine...');
+} else {
+  console.log('⚡ Serverless runtime detected (Netlify/AWS Lambda). Using Pure-JS Resilient Engine.');
   usePureJsFallback = true;
 }
 

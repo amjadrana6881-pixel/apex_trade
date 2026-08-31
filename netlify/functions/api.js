@@ -13,6 +13,16 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Body parser fix for serverless events
+app.use((req, res, next) => {
+  if (typeof req.body === 'string' && req.body.length > 0) {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch (e) {}
+  }
+  next();
+});
+
 // Serve static uploads
 app.use('/uploads', express.static(path.join(__dirname, '../../server/uploads')));
 
