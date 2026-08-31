@@ -1,13 +1,25 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
-const dbPath = path.join(__dirname, 'apextrade.db');
+let dbPath = path.join(__dirname, 'apextrade.db');
+
+if (process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT) {
+  const tmpPath = path.join('/tmp', 'apextrade.db');
+  if (!fs.existsSync(tmpPath) && fs.existsSync(dbPath)) {
+    try { fs.copyFileSync(dbPath, tmpPath); } catch (e) {}
+  }
+  dbPath = tmpPath;
+}
+
 const db = new Database(dbPath);
 
 // Enable WAL mode for high concurrency
-db.pragma('journal_mode = WAL');
+try {
+  db.pragma('journal_mode = WAL');
+} catch (e) {}
 
 function initDatabase() {
   // 1. Users table
