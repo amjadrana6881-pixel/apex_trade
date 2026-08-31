@@ -1,0 +1,13 @@
+{
+  "name": "apextrade-fullstack",
+  "version": "2.0.0",
+  "description": "ApexTrade Full-Stack Option Trading & Signals Platform",
+  "scripts": {
+    "build": "npm --prefix server install && npm --prefix client install && npm --prefix client run build",
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "dependencies": {
+    "serverless-http": "^3.2.0"
+  }
+}

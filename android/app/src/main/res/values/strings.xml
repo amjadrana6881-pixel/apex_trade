@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ApexTrade</string>
+    <string name="package_name">net.apextrade.app</string>
+    <string name="custom_url">http://192.168.100.5:3000</string>
+</resources>
