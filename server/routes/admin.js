@@ -234,6 +234,26 @@ router.put('/user/:id/edit-all', (req, res) => {
   }
 });
 
+// Delete User permanently
+router.delete('/user/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    if (user.role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Cannot delete Super Admin account.' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    return res.json({ success: true, message: `User account '${user.name}' (${user.email}) deleted permanently.` });
+  } catch (err) {
+    console.error('Admin delete user error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete user.' });
+  }
+});
+
 
 // View specific user's trades
 router.get('/user/:id/trades', (req, res) => {

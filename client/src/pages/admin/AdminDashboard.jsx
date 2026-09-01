@@ -431,6 +431,28 @@ export default function AdminDashboard() {
     }
   };
 
+  // Delete User Permanently
+  const handleDeleteUser = async (userObj) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user '${userObj.name}' (${userObj.email})? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/user/${userObj.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (data.success) {
+        fetchUsers();
+        if (inspectedUser?.id === userObj.id) setInspectedUser(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete user.');
+    }
+  };
+
   // Create Signal
   const handleCreateSignal = async (e) => {
     e.preventDefault();
@@ -1025,18 +1047,30 @@ export default function AdminDashboard() {
                     <td className="py-3 px-3 text-right space-x-2">
                       <button
                         onClick={() => handleInspectUser(u.id)}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                        className="p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer inline-flex items-center gap-1"
                         title="Inspect User Details"
                       >
-                        Inspect
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
                       </button>
                       <button
                         onClick={() => handleOpenEditUser(u)}
-                        className="p-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer"
+                        className="p-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
                         title="Master Edit User"
                       >
-                        Master Edit
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
                       </button>
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => handleDeleteUser(u)}
+                          className="p-1.5 px-2.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1 border border-rose-200"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1275,14 +1309,65 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Withdrawal Fee / Tax (%)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Min Withdrawal ($)</label>
                 <input
                   type="number"
-                  value={settings.withdrawal_fee_percent || 10}
-                  onChange={(e) => setSettings({ ...settings, withdrawal_fee_percent: e.target.value })}
+                  value={settings.min_withdrawal || 10}
+                  onChange={(e) => setSettings({ ...settings, min_withdrawal: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 text-xs font-mono focus:outline-none"
                 />
               </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3">
+              <div>
+                <p className="text-xs font-black text-emerald-900">3-Tier Automated Referral Commission Percentages</p>
+                <p className="text-[11px] text-emerald-700 mt-0.5">
+                  Automatically credited to inviter wallets whenever an approved deposit clears.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-emerald-800 mb-1">Level 1 Direct (%)</label>
+                  <input
+                    type="number"
+                    value={settings.referral_lvl1_pct || 10}
+                    onChange={(e) => setSettings({ ...settings, referral_lvl1_pct: e.target.value })}
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-slate-900 text-xs font-mono font-black focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-emerald-800 mb-1">Level 2 (%)</label>
+                  <input
+                    type="number"
+                    value={settings.referral_lvl2_pct || 5}
+                    onChange={(e) => setSettings({ ...settings, referral_lvl2_pct: e.target.value })}
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-slate-900 text-xs font-mono font-black focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-emerald-800 mb-1">Level 3 (%)</label>
+                  <input
+                    type="number"
+                    value={settings.referral_lvl3_pct || 2}
+                    onChange={(e) => setSettings({ ...settings, referral_lvl3_pct: e.target.value })}
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-slate-900 text-xs font-mono font-black focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">Withdrawal Fee / Tax (%)</label>
+              <input
+                type="number"
+                value={settings.withdrawal_fee_percent || 10}
+                onChange={(e) => setSettings({ ...settings, withdrawal_fee_percent: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 text-xs font-mono focus:outline-none"
+              />
             </div>
 
             <button

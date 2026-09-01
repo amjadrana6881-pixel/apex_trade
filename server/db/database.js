@@ -496,7 +496,15 @@ db = {
           return { changes: 1 };
         }
 
-        // 3. Delete OTP
+        // 3. Delete OTP & Delete User
+        if (/DELETE FROM users WHERE id = \?/i.test(normalizedSql)) {
+          const id = params[0];
+          if (store.users) {
+            store.users = store.users.filter(u => u.id !== id);
+          }
+          saveStore();
+          return { changes: 1 };
+        }
         if (/DELETE FROM otp_codes/i.test(normalizedSql)) {
           const email = (params[0] || '').toLowerCase().trim();
           const type = params[1] || (/FORGOT_PASSWORD/i.test(normalizedSql) ? 'FORGOT_PASSWORD' : 'REGISTER');
