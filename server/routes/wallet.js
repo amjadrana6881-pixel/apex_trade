@@ -26,7 +26,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Get configured crypto deposit addresses
-router.get('/addresses', (req, res) => {
+router.get(['/addresses', '/deposit-wallets'], (req, res) => {
   try {
     const wallets = db.prepare('SELECT * FROM deposit_wallets WHERE is_active = 1').all();
     return res.json({
