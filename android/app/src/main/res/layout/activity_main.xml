@@ -2,24 +2,138 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0a0d14">
+    android:background="#0b0f19">
 
+    <!-- Top Loading Indicator for Web Page Navigation -->
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="4dp"
+        android:layout_height="3dp"
         android:layout_alignParentTop="true"
         android:indeterminate="false"
         android:max="100"
         android:progressDrawable="@drawable/progress_bar_cyan"
         android:visibility="gone" />
 
+    <!-- Main Hardware-Accelerated WebView -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/progressBar"
-        android:background="#0a0d14" />
+        android:background="#0b0f19" />
+
+    <!-- Native Animated Splash Screen Overlay -->
+    <RelativeLayout
+        android:id="@+id/splashOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0b0f19"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Center Branding Container -->
+        <LinearLayout
+            android:id="@+id/splashCenterBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Glowing Animated Logo -->
+            <RelativeLayout
+                android:id="@+id/splashLogo"
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:background="@drawable/splash_logo_bg"
+                android:elevation="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="A"
+                    android:textColor="#FFFFFF"
+                    android:textSize="44sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Brand Name & PRO Badge -->
+            <LinearLayout
+                android:id="@+id/splashTitleBox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ApexTrade"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/splash_badge_bg"
+                    android:paddingStart="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="3dp"
+                    android:text="PRO"
+                    android:textColor="#60a5fa"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Subtitle -->
+            <TextView
+                android:id="@+id/splashSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Institutional Option &amp; Signals Platform"
+                android:textColor="#94a3b8"
+                android:textSize="12sp" />
+
+            <!-- Animated Status Loader -->
+            <ProgressBar
+                android:id="@+id/splashSpinner"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginTop="28dp"
+                android:indeterminate="true"
+                android:indeterminateTint="#3b82f6" />
+
+            <TextView
+                android:id="@+id/splashStatusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Connecting to live trading desk..."
+                android:textColor="#64748b"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <!-- Bottom Footer Info -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="24dp"
+            android:text="ApexTrade Inc. © 2026 • Encrypted 256-Bit SSL"
+            android:textColor="#475569"
+            android:textSize="10sp" />
+
+    </RelativeLayout>
 
 </RelativeLayout>

@@ -12,12 +12,13 @@ import {
   Radio, 
   TrendingUp, 
   CheckCircle2, 
-  Sparkles, 
   Copy, 
   Check, 
   Headphones, 
   Wallet,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles,
+  Inbox
 } from 'lucide-react';
 import { useAuth, API_BASE } from '../context/AuthContext';
 
@@ -39,6 +40,8 @@ export default function Register() {
   // OTP States
   const [otp, setOtp] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [otpNotice, setOtpNotice] = useState('');
   const [copiedOtp, setCopiedOtp] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -73,11 +76,13 @@ export default function Register() {
       try {
         data = JSON.parse(text);
       } catch (jsonErr) {
-        throw new Error('Authentication service is initializing. Please try again in a few seconds.');
+        throw new Error('Authentication service is initializing. Please try again.');
       }
 
       if (data.success) {
-        setGeneratedOtp(data.otp);
+        setGeneratedOtp(data.otp || '');
+        setEmailSent(Boolean(data.emailSent));
+        setOtpNotice(data.message || 'Verification code generated.');
         setStep(2);
       } else {
         setError(data.message || 'Failed to send OTP code.');
@@ -123,7 +128,7 @@ export default function Register() {
         login(data.token, data.user);
         navigate('/dashboard');
       } else {
-        setError(data.message || 'Verification failed.');
+        setError(data.message || 'Verification failed. Please check your OTP.');
       }
     } catch (err) {
       console.error('Registration error:', err);
@@ -142,14 +147,14 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6 lg:p-8">
-      <div className="w-full max-w-5xl bg-white border border-slate-200/80 rounded-3xl sm:rounded-[32px] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[660px]">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-3 sm:p-6 lg:p-8">
+      <div className="w-full max-w-5xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[640px]">
         
-        {/* Left Side: Brand Showcase (Desktop only: hidden on mobile) */}
-        <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 lg:p-10 text-white flex-col justify-between relative overflow-hidden">
+        {/* Desktop Brand Showcase (Left 5 Cols) */}
+        <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-8 lg:p-10 text-white flex-col justify-between relative overflow-hidden">
           {/* Ambient Lights */}
-          <div className="absolute -top-24 -left-24 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3">
@@ -174,7 +179,7 @@ export default function Register() {
             </div>
 
             {/* Platform Feature Cards */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2.5 pt-2">
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
                 <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
                   <Radio className="w-4 h-4" />
@@ -207,32 +212,53 @@ export default function Register() {
             </div>
           </div>
 
-          <div className="relative z-10 pt-8 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
             <span>ApexTrade Inc. © 2026</span>
-            <span className="text-emerald-400 font-bold">● System Operational</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Systems
+            </span>
           </div>
         </div>
 
-        {/* Right Side: Form (Mobile first & immediately centered) */}
-        <div className="lg:col-span-7 p-5 sm:p-8 lg:p-12 flex flex-col justify-center">
-          <div className="max-w-md w-full mx-auto space-y-4 sm:space-y-6">
+        {/* Right Side: Responsive Mobile & Desktop Form */}
+        <div className="lg:col-span-7 p-4 sm:p-7 lg:p-10 flex flex-col justify-center">
+          <div className="max-w-md w-full mx-auto space-y-3.5 sm:space-y-4">
             
-            {/* Mobile Header Badge & Logo */}
-            <div className="lg:hidden flex items-center justify-between border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 font-black text-white text-base">
-                  A
+            {/* Mobile Header Banner (Informative & Brand-Rich) */}
+            <div className="lg:hidden bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 rounded-2xl p-3.5 text-white shadow-md relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm shadow-sm">
+                    A
+                  </div>
+                  <div>
+                    <span className="text-sm font-black text-white flex items-center gap-1">
+                      ApexTrade <span className="px-1.5 py-0.2 rounded-full bg-blue-500/40 text-blue-300 text-[8px] font-black border border-blue-400/40">PRO</span>
+                    </span>
+                    <p className="text-[9px] text-slate-300 font-mono">Options & Signals Desk</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-base font-black text-slate-900 flex items-center gap-1">
-                    ApexTrade <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 text-[9px] font-black border border-blue-200">PRO</span>
-                  </span>
-                  <p className="text-[10px] text-slate-400 font-mono">Options & Signals Platform</p>
+                <span className="text-[9px] font-extrabold text-blue-300 bg-blue-500/20 px-2.5 py-0.5 rounded-full border border-blue-400/30">
+                  {step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}
+                </span>
+              </div>
+
+              {/* Mobile Quick Highlights */}
+              <div className="mt-2.5 pt-2 border-t border-white/10 grid grid-cols-3 gap-1 text-center">
+                <div className="bg-white/5 rounded-lg py-0.5 px-1">
+                  <div className="text-[8px] text-slate-300 font-medium">Signals</div>
+                  <div className="text-[9px] font-black text-blue-300">07:00 PM</div>
+                </div>
+                <div className="bg-white/5 rounded-lg py-0.5 px-1">
+                  <div className="text-[8px] text-slate-300 font-medium">Payouts</div>
+                  <div className="text-[9px] font-black text-emerald-300">USDT Fast</div>
+                </div>
+                <div className="bg-white/5 rounded-lg py-0.5 px-1">
+                  <div className="text-[8px] text-slate-300 font-medium">Security</div>
+                  <div className="text-[9px] font-black text-purple-300">256-Bit SSL</div>
                 </div>
               </div>
-              <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                {step === 1 ? 'Step 1/2' : 'Step 2/2'}
-              </span>
             </div>
 
             {/* Back button on Step 2 */}
@@ -242,7 +268,7 @@ export default function Register() {
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to edit details</span>
+                <span>Back to edit credentials</span>
               </button>
             )}
 
@@ -250,27 +276,28 @@ export default function Register() {
               <span className="hidden lg:inline-block px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-200">
                 {step === 1 ? 'STEP 1 OF 2: TRADER PROFILE' : 'STEP 2 OF 2: OTP VERIFICATION'}
               </span>
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 mt-1">
+              <h2 className="text-lg sm:text-2xl font-black text-slate-900 mt-1">
                 {step === 1 ? 'Create Free Trader Account' : 'Verify Email with 6-Digit OTP'}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {step === 1 
                   ? 'Enter your credentials to generate your institutional trader account.' 
-                  : `Enter the 6-digit verification code generated for ${email}.`}
+                  : `Enter the 6-digit verification code for ${email}.`}
               </p>
             </div>
 
             {error && (
-              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700">
-                {error}
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-start gap-2 animate-shake">
+                <span>⚠️</span>
+                <span>{error}</span>
               </div>
             )}
 
-            {/* STEP 1 FORM */}
+            {/* STEP 1: FORM */}
             {step === 1 && (
-              <form onSubmit={handleProceedToOtp} className="space-y-3 sm:space-y-3.5">
+              <form onSubmit={handleProceedToOtp} className="space-y-2.5 sm:space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Legal Name</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-0.5">Full Legal Name</label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
@@ -279,13 +306,13 @@ export default function Register() {
                       placeholder="e.g. Tariq Khan"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-medium transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-0.5">Email Address</label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
@@ -294,14 +321,14 @@ export default function Register() {
                       placeholder="trader@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-medium transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Password</label>
                     <div className="relative">
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
@@ -310,7 +337,7 @@ export default function Register() {
                         placeholder="Min 6 chars"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-9 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-medium transition-all"
                       />
                       <button
                         type="button"
@@ -323,7 +350,7 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Confirm Password</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Confirm Password</label>
                     <div className="relative">
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
@@ -332,16 +359,16 @@ export default function Register() {
                         placeholder="Re-enter password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-medium"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-medium transition-all"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between">
+                  <label className="block text-xs font-bold text-slate-700 mb-0.5 flex justify-between">
                     <span>Sponsor / Referral Code</span>
-                    <span className="text-slate-400 font-normal">(Optional)</span>
+                    <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                   </label>
                   <div className="relative">
                     <Gift className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -350,7 +377,7 @@ export default function Register() {
                       placeholder="e.g. APEX1234"
                       value={referralCode}
                       onChange={(e) => setReferralCode(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl pl-10 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-mono transition-all"
                     />
                   </div>
                 </div>
@@ -358,29 +385,48 @@ export default function Register() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all mt-1"
+                  className="w-full py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 transition-all active:scale-[0.99] mt-1"
                 >
-                  <span>{loading ? 'Sending Code...' : 'Continue to Verification'}</span>
+                  <span>{loading ? 'Sending Verification Code...' : 'Continue to Verification'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
             )}
 
-            {/* STEP 2 FORM (OTP Verification) */}
+            {/* STEP 2: OTP VERIFICATION */}
             {step === 2 && (
-              <form onSubmit={handleVerifyAndRegister} className="space-y-4">
+              <form onSubmit={handleVerifyAndRegister} className="space-y-3.5">
                 
+                {/* Email Sent Notification Box */}
+                {emailSent ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start gap-2.5 text-xs">
+                    <Inbox className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Verification Code Sent!</span>
+                      <span>We sent a 6-digit OTP to <strong>{email}</strong>. Please check your inbox and spam folder.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 flex items-start gap-2.5 text-xs">
+                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Verification OTP Generated</span>
+                      <span>{otpNotice || `Verification code has been generated for ${email}.`}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Instant Generated OTP Badge */}
                 {generatedOtp && (
-                  <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-black uppercase text-blue-700 block">YOUR 6-DIGIT OTP CODE</span>
-                      <span className="font-mono text-lg font-black text-blue-900 tracking-widest">{generatedOtp}</span>
+                      <span className="text-[10px] font-extrabold uppercase text-slate-500 block">YOUR 6-DIGIT OTP CODE</span>
+                      <span className="font-mono text-lg font-black text-blue-700 tracking-widest">{generatedOtp}</span>
                     </div>
                     <button
                       type="button"
                       onClick={copyOtpToClipboard}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer shadow-xs"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer shadow-xs transition-all"
                     >
                       {copiedOtp ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedOtp ? 'Copied' : 'Auto Fill'}</span>
@@ -389,7 +435,7 @@ export default function Register() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 text-center">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 text-center">
                     Enter 6-Digit Verification Code
                   </label>
                   <input
@@ -399,16 +445,16 @@ export default function Register() {
                     placeholder="••••••"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl px-4 py-3 text-center text-xl font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-center text-xl font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all"
+                  className="w-full py-3 sm:py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 transition-all active:scale-[0.99]"
                 >
-                  <span>{loading ? 'Verifying...' : 'Verify & Open Account'}</span>
+                  <span>{loading ? 'Verifying...' : 'Verify & Open Trader Account'}</span>
                   <CheckCircle2 className="w-4 h-4" />
                 </button>
               </form>
@@ -418,7 +464,7 @@ export default function Register() {
             <div className="border-t border-slate-100 pt-3 text-center">
               <p className="text-xs text-slate-500">
                 Already have an account?{' '}
-                <Link to="/login" className="font-extrabold text-blue-600 hover:underline">
+                <Link to="/login" className="font-extrabold text-blue-600 hover:text-blue-700 hover:underline">
                   Sign In here
                 </Link>
               </p>

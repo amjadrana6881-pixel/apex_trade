@@ -73,6 +73,10 @@ if (usePureJsFallback || !db) {
           const paramObj = (params.length === 1 && typeof params[0] === 'object' && params[0] !== null) ? params[0] : null;
 
           // 1. Users queries
+          if (/SELECT id FROM users WHERE role = \? OR email = \?/i.test(normalizedSql)) {
+            const [role, email] = params;
+            return store.users.find(u => u.role === role || (u.email || '').toLowerCase() === (email || '').toLowerCase().trim()) || null;
+          }
           if (/SELECT \* FROM users WHERE email = \?/i.test(normalizedSql) || /SELECT id, name FROM users WHERE email = \?/i.test(normalizedSql) || /SELECT id FROM users WHERE email = \?/i.test(normalizedSql)) {
             const email = String(params[0] || '').toLowerCase().trim();
             return store.users.find(u => (u.email || '').toLowerCase() === email) || null;
@@ -87,9 +91,20 @@ if (usePureJsFallback || !db) {
           }
 
           // 2. OTP Codes queries
-          if (/SELECT \* FROM otp_codes WHERE email = \? AND code = \?/i.test(normalizedSql)) {
-            const [email, code] = params;
-            return store.otp_codes.find(o => (o.email || '').toLowerCase() === (email || '').toLowerCase().trim() && String(o.code).trim() === String(code).trim()) || null;
+          if (/SELECT \* FROM otp_codes/i.test(normalizedSql)) {
+            const email = (params[0] || '').toLowerCase().trim();
+            const code = String(params[1] || '').trim();
+            const isForgotPassword = /FORGOT_PASSWORD/i.test(normalizedSql);
+            const requiredType = isForgotPassword ? 'FORGOT_PASSWORD' : 'REGISTER';
+            const now = new Date();
+            
+            return (store.otp_codes || []).find(o => {
+              const matchesEmail = (o.email || '').toLowerCase() === email;
+              const matchesCode = String(o.code).trim() === code;
+              const matchesType = (o.type || 'REGISTER') === requiredType;
+              const notExpired = o.expires_at ? new Date(o.expires_at) >= now : true;
+              return matchesEmail && matchesCode && matchesType && notExpired;
+            }) || null;
           }
 
           // 3. Signals queries
@@ -229,12 +244,21 @@ if (usePureJsFallback || !db) {
 
           // 2. Insert OTP
           if (/INSERT INTO otp_codes/i.test(normalizedSql)) {
-            const [id, email, code, type] = params;
+            const [id, email, code] = params;
+            let otpType = 'REGISTER';
+            if (/FORGOT_PASSWORD/i.test(normalizedSql) || params[3] === 'FORGOT_PASSWORD') {
+              otpType = 'FORGOT_PASSWORD';
+            } else if (params[3]) {
+              otpType = params[3];
+            }
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+            if (!store.otp_codes) store.otp_codes = [];
             store.otp_codes.push({
               id,
               email: (email || '').toLowerCase().trim(),
               code: String(code).trim(),
-              type,
+              type: otpType,
+              expires_at: expiresAt,
               created_at: new Date().toISOString()
             });
             saveStore();
@@ -242,14 +266,27 @@ if (usePureJsFallback || !db) {
           }
 
           // 3. Delete OTP
-          if (/DELETE FROM otp_codes WHERE email = \? AND type = \?/i.test(normalizedSql)) {
-            const [email, type] = params;
-            store.otp_codes = store.otp_codes.filter(o => !((o.email || '').toLowerCase() === (email || '').toLowerCase().trim() && o.type === type));
+          if (/DELETE FROM otp_codes/i.test(normalizedSql)) {
+            const email = (params[0] || '').toLowerCase().trim();
+            const type = params[1] || (/FORGOT_PASSWORD/i.test(normalizedSql) ? 'FORGOT_PASSWORD' : 'REGISTER');
+            if (store.otp_codes) {
+              store.otp_codes = store.otp_codes.filter(o => !((o.email || '').toLowerCase() === email && (o.type || 'REGISTER') === type));
+            }
             saveStore();
             return { changes: 1 };
           }
 
-          // 4. Update User Password
+          // 4. Update User Password or Admin Credentials
+          if (/UPDATE users SET email = \?, password = \? WHERE id = \?/i.test(normalizedSql)) {
+            const [newEmail, newPassword, id] = params;
+            const u = store.users.find(x => x.id === id || x.role === 'admin');
+            if (u) {
+              u.email = (newEmail || '').toLowerCase().trim();
+              u.password = newPassword;
+            }
+            saveStore();
+            return { changes: 1 };
+          }
           if (/UPDATE users SET password = \? WHERE email = \?/i.test(normalizedSql)) {
             const [password, email] = params;
             const u = store.users.find(x => (x.email || '').toLowerCase() === (email || '').toLowerCase().trim());
@@ -396,6 +433,15 @@ function initDatabase() {
         custom_win_rate REAL DEFAULT 0.50,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS otp_codes (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        type TEXT DEFAULT 'REGISTER',
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   } catch (e) {}
 
@@ -403,21 +449,29 @@ function initDatabase() {
 }
 
 function seedDefaultData() {
-  // 1. Seed Master Super Admin User
-  const adminExists = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@apextrade.net');
-  if (!adminExists) {
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync('admin123', salt);
+  // 1. Seed & Sync Master Super Admin User from Environment Variables
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@apextrade.net').toLowerCase().trim();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const salt = bcrypt.genSaltSync(10);
+  const hash = bcrypt.hashSync(adminPassword, salt);
+
+  const existingAdmin = db.prepare('SELECT id FROM users WHERE role = ? OR email = ?').get('admin', adminEmail);
+  if (!existingAdmin) {
     db.prepare(`
       INSERT INTO users (id, name, email, password, role, wallet_balance, tradeable_amount, referral_code)
       VALUES (?, ?, ?, ?, 'admin', 50000.00, 50000.00, ?)
     `).run(
       'admin-root-001',
       'ApexTrade Master Admin',
-      'admin@apextrade.net',
+      adminEmail,
       hash,
       'APEXADMIN'
     );
+    console.log(`🛡️ [ADMIN SEED] Super Admin created: ${adminEmail}`);
+  } else {
+    // Keep password and email synchronized if changed in .env
+    db.prepare('UPDATE users SET email = ?, password = ? WHERE id = ?').run(adminEmail, hash, existingAdmin.id);
+    console.log(`🛡️ [ADMIN SYNC] Super Admin synced with .env: ${adminEmail}`);
   }
 
   // 2. Seed Real Active Trading Pairs

@@ -48,18 +48,47 @@ function ProtectedRoute({ children, adminOnly = false }) {
   return children;
 }
 
+function RootRedirect() {
+  const { token, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <span className="text-sm text-slate-500 font-bold">Loading ApexTrade...</span>
+        </div>
+      </div>
+    );
+  }
+  return token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+}
+
+function PublicAuthOnly({ children }) {
+  const { token, loading, user } = useAuth();
+  if (loading) return null;
+  if (token) {
+    return <Navigate to={user?.role === 'admin' ? "/admin" : "/dashboard"} replace />;
+  }
+  return children;
+}
+
 function MainLayout() {
   const location = useLocation();
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password' || location.pathname === '/admin-secure-auth';
+  const isAuthPage = location.pathname === '/login' || 
+                     location.pathname === '/register' || 
+                     location.pathname === '/forgot-password' || 
+                     location.pathname === '/admin-secure-auth' ||
+                     location.pathname === '/admin-login';
 
   if (isAuthPage) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/login" element={<PublicAuthOnly><Login /></PublicAuthOnly>} />
+          <Route path="/register" element={<PublicAuthOnly><Register /></PublicAuthOnly>} />
+          <Route path="/forgot-password" element={<PublicAuthOnly><ForgotPassword /></PublicAuthOnly>} />
           <Route path="/admin-secure-auth" element={<AdminLogin />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
         </Routes>
       </div>
     );
@@ -78,8 +107,8 @@ function MainLayout() {
         {/* Dynamic Page Container */}
         <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/trading" element={<ProtectedRoute><LiveTrading /></ProtectedRoute>} />
             <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
             <Route path="/signals" element={<ProtectedRoute><SignalsHub /></ProtectedRoute>} />
@@ -90,7 +119,7 @@ function MainLayout() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </main>
       </div>

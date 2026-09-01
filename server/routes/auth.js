@@ -7,6 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const db = require('../db/database');
 const { authenticateToken, JWT_SECRET } = require('../middleware/auth');
+const { sendOtpEmail } = require('../services/emailService');
 
 // Multer storage for KYC docs
 const storage = multer.diskStorage({
@@ -21,7 +22,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // 1. Send OTP for Registration
-router.post('/send-register-otp', (req, res) => {
+router.post('/send-register-otp', async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -52,9 +53,22 @@ router.post('/send-register-otp', (req, res) => {
 
     console.log(`📩 [OTP DISPATCH] Registration OTP for ${cleanEmail}: ${otpCode}`);
 
+    // Dispatch real email via Nodemailer
+    const emailResult = await sendOtpEmail({
+      to: cleanEmail,
+      code: otpCode,
+      type: 'REGISTER'
+    });
+
+    const isEmailSent = emailResult && emailResult.emailSent;
+    const msg = isEmailSent 
+      ? `A 6-digit verification code has been sent to ${cleanEmail}. Please check your inbox and spam folder.`
+      : `A 6-digit verification code has been generated for ${cleanEmail}.`;
+
     return res.json({
       success: true,
-      message: `A 6-digit verification code has been generated for ${cleanEmail}.`,
+      message: msg,
+      emailSent: isEmailSent,
       otp: otpCode // Provided for instant seamless UI verification & testing
     });
   } catch (err) {
@@ -174,7 +188,7 @@ router.post('/register', (req, res) => {
 });
 
 // 3. Send Forgot Password OTP
-router.post('/send-forgot-password-otp', (req, res) => {
+router.post('/send-forgot-password-otp', async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -202,9 +216,22 @@ router.post('/send-forgot-password-otp', (req, res) => {
 
     console.log(`🔑 [PASSWORD RESET OTP] OTP for ${cleanEmail}: ${otpCode}`);
 
+    // Dispatch real email via Nodemailer
+    const emailResult = await sendOtpEmail({
+      to: cleanEmail,
+      code: otpCode,
+      type: 'FORGOT_PASSWORD'
+    });
+
+    const isEmailSent = emailResult && emailResult.emailSent;
+    const msg = isEmailSent 
+      ? `Password reset code sent to ${cleanEmail}. Please check your inbox and spam folder.`
+      : `Password reset verification code generated for ${cleanEmail}.`;
+
     return res.json({
       success: true,
-      message: `Password reset verification code has been generated for ${cleanEmail}.`,
+      message: msg,
+      emailSent: isEmailSent,
       otp: otpCode
     });
   } catch (err) {
