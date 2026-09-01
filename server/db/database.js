@@ -158,6 +158,38 @@ try {
   }
 } catch (e) {}
 
+// Always guarantee that current ADMIN_EMAIL and ADMIN_PASSWORD from .env are active
+if (!store.users) store.users = [];
+const adminIdx = store.users.findIndex(u => u.role === 'admin' || (u.email || '').toLowerCase() === adminEmail);
+if (adminIdx !== -1) {
+  store.users[adminIdx].email = adminEmail;
+  store.users[adminIdx].password = adminHash;
+  store.users[adminIdx].role = 'admin';
+} else {
+  store.users.unshift({
+    id: 'admin-root-001',
+    name: 'ApexTrade Master Admin',
+    email: adminEmail,
+    password: adminHash,
+    role: 'admin',
+    wallet_balance: 50000.00,
+    tradeable_amount: 50000.00,
+    investment_balance: 0,
+    referral_code: 'APEXADMIN',
+    referred_by: '',
+    phone: '',
+    kyc_status: 'VERIFIED',
+    kyc_doc: '',
+    status: 'ACTIVE',
+    trade_mode: 'AUTO',
+    custom_win_rate: 0.50,
+    withdrawal_password: '',
+    saved_usdt_address: '',
+    saved_usdt_network: 'TRC-20',
+    created_at: new Date().toISOString()
+  });
+}
+
 const saveStore = () => {
   try {
     fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');

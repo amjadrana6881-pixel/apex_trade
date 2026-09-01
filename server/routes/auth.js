@@ -301,7 +301,39 @@ router.post('/login', (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const envAdminEmail = (process.env.ADMIN_EMAIL || 'admin@apextrade.net').toLowerCase().trim();
+    const envAdminPass = process.env.ADMIN_PASSWORD || 'admin123';
+
+    // Direct Master Admin Authentication from .env
+    if (cleanEmail === envAdminEmail && password === envAdminPass) {
+      let adminUser = db.prepare('SELECT * FROM users WHERE email = ?').get(cleanEmail);
+      if (!adminUser) {
+        adminUser = db.prepare('SELECT * FROM users WHERE role = ?').get('admin');
+      }
+      const adminId = adminUser?.id || 'admin-root-001';
+      const token = jwt.sign({ id: adminId, email: envAdminEmail, role: 'admin' }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({
+        success: true,
+        message: 'Master Admin authenticated successfully!',
+        token,
+        user: {
+          id: adminId,
+          name: adminUser?.name || 'ApexTrade Master Admin',
+          email: envAdminEmail,
+          role: 'admin',
+          wallet_balance: adminUser?.wallet_balance || 50000.00,
+          tradeable_amount: adminUser?.tradeable_amount || 50000.00,
+          investment_balance: 0,
+          referral_code: 'APEXADMIN',
+          phone: '',
+          kyc_status: 'VERIFIED',
+          created_at: new Date().toISOString()
+        }
+      });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(cleanEmail);
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid email or password.' });
     }
