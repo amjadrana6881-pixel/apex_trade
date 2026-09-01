@@ -78,69 +78,6 @@ function PublicAuthOnly({ children }) {
   return children;
 }
 
-function AdminLayout({ children }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/admin-secure-auth');
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
-      {/* Sleek Master Admin Top Bar */}
-      <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 px-4 sm:px-8 py-3 flex items-center justify-between shadow-md">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 flex items-center justify-center shadow-md">
-            <img src="/logo.svg" alt="ApexTrade Master" className="w-full h-full rounded-xl" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black tracking-tight text-white text-base">ApexTrade</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-[10px] font-black uppercase tracking-wider">
-                PRO
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black uppercase tracking-wider hidden sm:inline-block">
-                SUPER ADMIN DESK
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[11px] text-slate-400 font-medium">Master Server Synchronized</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Admin Profile & Actions */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col text-right">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5 justify-end">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-              <span>{user?.name || 'ApexTrade Master Admin'}</span>
-            </span>
-            <span className="text-[11px] text-slate-400 font-mono">{user?.email || 'admin'}</span>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 text-xs font-extrabold transition-all cursor-pointer shadow-sm"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Admin Content Area (Full Width Canvas) */}
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {children}
-      </main>
-    </div>
-  );
-}
-
 function MainLayout() {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || 
@@ -165,14 +102,12 @@ function MainLayout() {
     );
   }
 
-  // Pure Dedicated Super Admin Layout (No Player Sidebar / No Player Nav)
+  // Pure Dedicated Super Admin View with Integrated Responsive Sidebar
   if (isAdminPanelPage) {
     return (
-      <AdminLayout>
-        <Routes>
-          <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-        </Routes>
-      </AdminLayout>
+      <Routes>
+        <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
+      </Routes>
     );
   }
 

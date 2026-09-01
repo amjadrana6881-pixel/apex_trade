@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Wallet, 
@@ -14,32 +15,36 @@ import {
   Check, 
   X, 
   Trash2, 
-  RefreshCw,
-  Eye,
-  Sliders,
-  DollarSign,
-  Radio,
-  Clock,
-  Layers,
-  FileText,
-  UserCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Edit3,
-  Key,
-  Lock,
-  Headphones,
-  Send,
-  Edit2,
-  BookmarkCheck
+  RefreshCw, 
+  Eye, 
+  Sliders, 
+  DollarSign, 
+  Radio, 
+  Clock, 
+  Layers, 
+  FileText, 
+  UserCheck, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Edit3, 
+  Key, 
+  Lock, 
+  Headphones, 
+  Send, 
+  Edit2, 
+  BookmarkCheck,
+  Menu,
+  LogOut
 } from 'lucide-react';
 import { useAuth, API_BASE } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 
 export default function AdminDashboard() {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const { socket } = useSocket();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({});
@@ -587,66 +592,258 @@ export default function AdminDashboard() {
     } catch (e) { console.error(e); }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/admin-secure-auth');
+  };
+
   const tabs = [
     { key: 'overview', label: 'Overview', icon: BarChart2 },
-    { key: 'support', label: `Support Desk (${supportConversations.length})`, icon: Headphones },
-    { key: 'signals', label: `Daily Signals (${signals.length})`, icon: Radio },
-    { key: 'users', label: `Users & Master Editor (${users.length})`, icon: Users },
+    { key: 'support', label: 'Support Desk', icon: Headphones, badge: supportConversations.length > 0 ? supportConversations.length : null, badgeColor: 'bg-blue-600' },
+    { key: 'signals', label: 'Daily Signals', icon: Radio, badge: signals.length > 0 ? signals.length : null, badgeColor: 'bg-indigo-600' },
+    { key: 'users', label: 'Users & Master Editor', icon: Users, badge: users.length > 0 ? users.length : null, badgeColor: 'bg-slate-700' },
     { key: 'trades', label: 'Live Trades', icon: TrendingUp },
-    { key: 'deposits', label: `Crypto Deposits (${stats.pendingDeposits || 0})`, icon: ArrowDownLeft },
-    { key: 'withdrawals', label: `Crypto Withdrawals (${stats.pendingWithdrawals || 0})`, icon: ArrowUpRight },
+    { key: 'deposits', label: 'Crypto Deposits', icon: ArrowDownLeft, badge: stats.pendingDeposits > 0 ? stats.pendingDeposits : null, badgeColor: 'bg-amber-600' },
+    { key: 'withdrawals', label: 'Crypto Withdrawals', icon: ArrowUpRight, badge: stats.pendingWithdrawals > 0 ? stats.pendingWithdrawals : null, badgeColor: 'bg-rose-600' },
     { key: 'wallets', label: 'Deposit Addresses', icon: Wallet },
-    { key: 'kyc', label: `KYC Review (${stats.pendingKyc || 0})`, icon: ShieldCheck },
+    { key: 'kyc', label: 'KYC Review', icon: ShieldCheck, badge: stats.pendingKyc > 0 ? stats.pendingKyc : null, badgeColor: 'bg-amber-600' },
     { key: 'announcements', label: 'Announcements', icon: Bell },
-    { key: 'settings', label: 'Settings', icon: Settings },
+    { key: 'settings', label: 'Platform Settings', icon: Settings },
   ];
 
   const activeChatUser = users.find(u => u.id === activeChatUserId);
 
   return (
-    <div className="space-y-6 pb-24 md:pb-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col lg:flex-row">
+      
+      {/* 1. Mobile Top Bar (< lg) */}
+      <header className="lg:hidden sticky top-0 z-40 bg-slate-900 text-white border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white cursor-pointer"
+            aria-label="Open Admin Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 text-[11px] font-black tracking-wider uppercase border border-red-200">
-              🛡️ MASTER ADMINISTRATION
-            </span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 flex items-center justify-center">
+              <img src="/logo.svg" alt="ApexTrade" className="w-full h-full rounded-lg" />
+            </div>
+            <span className="font-black text-white text-sm">ApexTrade Admin</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">ApexTrade Master Control Panel</h1>
-          <p className="text-xs text-slate-500">100% full platform control over signals, user balances, crypto deposits/withdrawals, and live chat support.</p>
         </div>
 
-        <button
-          onClick={fetchAllData}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs cursor-pointer w-fit"
-        >
-          <RefreshCw className="w-4 h-4 text-blue-600" />
-          <span>Refresh All Data</span>
-        </button>
-      </div>
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-[10px] font-black uppercase">
+            {tabs.find(t => t.key === tab)?.label || 'Overview'}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:text-rose-300 cursor-pointer"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-200 select-none">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const isActive = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white bg-slate-100/60'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* 2. Mobile Drawer Overlay */}
+      {mobileSidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileSidebarOpen(false)}
+        >
+          <div 
+            className="w-72 max-w-[85%] h-full bg-slate-900 border-r border-slate-800 p-4 flex flex-col justify-between shadow-2xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 flex items-center justify-center">
+                    <img src="/logo.svg" alt="ApexTrade" className="w-full h-full rounded-xl" />
+                  </div>
+                  <div>
+                    <h2 className="font-black text-white text-sm leading-tight">ApexTrade PRO</h2>
+                    <span className="text-[10px] font-black text-rose-400 uppercase">SUPER ADMIN DESK</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <div className="space-y-1">
+                {tabs.map((t) => {
+                  const Icon = t.icon;
+                  const isActive = tab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => {
+                        setTab(t.key);
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                        <span>{t.label}</span>
+                      </div>
+                      {t.badge && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black text-white ${t.badgeColor || 'bg-slate-700'}`}>
+                          {t.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Profile & Logout */}
+            <div className="pt-4 mt-6 border-t border-slate-800 space-y-3">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-800/60 border border-slate-800">
+                <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{user?.name || 'Super Admin'}</p>
+                  <p className="text-[10px] text-slate-400 truncate font-mono">{user?.email || 'admin@apextrade.net'}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold text-xs cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Desktop Dedicated Left Sidebar (>= lg) */}
+      <aside className="hidden lg:flex w-72 bg-slate-900 border-r border-slate-800 p-5 flex-col justify-between shrink-0 min-h-screen sticky top-0">
+        <div className="space-y-6">
+          {/* Brand Header */}
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <img src="/logo.svg" alt="ApexTrade Master" className="w-full h-full rounded-2xl" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-white text-base tracking-tight">ApexTrade</span>
+                <span className="px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] font-black">PRO</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[9px] font-black uppercase tracking-wider block mt-1 w-fit">
+                SUPER ADMIN DESK
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="space-y-1">
+            <span className="px-3 text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">Control Center</span>
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              const isActive = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 translate-x-1'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span>{t.label}</span>
+                  </div>
+                  {t.badge && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black text-white ${t.badgeColor || 'bg-slate-700'}`}>
+                      {t.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom Profile & Logout Card */}
+        <div className="pt-4 border-t border-slate-800 space-y-3">
+          <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-800/60 border border-slate-800">
+            <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{user?.name || 'Super Admin'}</p>
+              <p className="text-[10px] text-slate-400 truncate font-mono">{user?.email || 'admin@apextrade.net'}</p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold text-xs transition-all cursor-pointer shadow-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* 4. Main Control Workspace */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        {/* Workspace Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black tracking-wider uppercase">
+                {tabs.find(t => t.key === tab)?.label || 'Control Desk'}
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Server Synced</span>
+              </div>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+              {tab === 'overview' && 'ApexTrade Master Overview'}
+              {tab === 'support' && 'Live Support Chat Desk'}
+              {tab === 'signals' && 'Daily Trading Signals Hub'}
+              {tab === 'users' && 'Registered Traders & Master User Editor'}
+              {tab === 'trades' && 'Live Option Contracts & Ledger'}
+              {tab === 'deposits' && 'Crypto Deposit Verification Requests'}
+              {tab === 'withdrawals' && 'USDT Crypto Withdrawal Requests'}
+              {tab === 'wallets' && 'Platform Deposit Wallet Addresses'}
+              {tab === 'kyc' && 'KYC Verification Submissions'}
+              {tab === 'announcements' && 'Platform Broadcast Announcements'}
+              {tab === 'settings' && 'Platform Parameters & 3-Tier Referral Rates'}
+            </h1>
+            <p className="text-xs text-slate-500">100% full platform control over signals, user balances, crypto deposits/withdrawals, and live chat support.</p>
+          </div>
+
+          <button
+            onClick={fetchAllData}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs cursor-pointer w-fit"
+          >
+            <RefreshCw className="w-4 h-4 text-blue-600" />
+            <span>Refresh All Data</span>
+          </button>
+        </div>
 
       {/* 1. OVERVIEW TAB */}
       {tab === 'overview' && (
@@ -1680,6 +1877,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }
