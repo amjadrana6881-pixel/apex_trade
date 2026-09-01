@@ -3,6 +3,7 @@ const express = require('express');
 const serverless = require('serverless-http');
 const cors = require('cors');
 const path = require('path');
+const os = require('os');
 
 const app = express();
 
@@ -11,8 +12,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Body parser fix for serverless events & raw payloads
 app.use((req, res, next) => {
@@ -28,19 +29,14 @@ app.use((req, res, next) => {
     try {
       req.body = JSON.parse(req.rawBody);
     } catch (e) {}
-  } else if (req.apiGateway && req.apiGateway.event && req.apiGateway.event.body) {
-    try {
-      const raw = req.apiGateway.event.isBase64Encoded 
-        ? Buffer.from(req.apiGateway.event.body, 'base64').toString('utf8')
-        : req.apiGateway.event.body;
-      req.body = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    } catch (e) {}
   }
   next();
 });
 
-// Serve static uploads
-app.use('/uploads', express.static(path.join(__dirname, '../../server/uploads')));
+// Serve static uploads safely
+const uploadDir = path.join(os.tmpdir(), 'uploads');
+app.use('/uploads', express.static(uploadDir));
+app.use('/.netlify/functions/api/uploads', express.static(uploadDir));
 
 // Universal API Router
 const apiRouter = express.Router();
@@ -69,10 +65,19 @@ app.use('/.netlify/functions/api/api', apiRouter);
 app.use('/.netlify/functions/api', apiRouter);
 app.use('/', apiRouter);
 
-module.exports.handler = serverless(app, {
+// Global Error Handler for Serverless
+app.use((err, req, res, next) => {
+  console.error('Serverless Handler Error:', err);
+  res.status(500).json({
+    success: false,
+    message: err.message || 'Internal server error occurred.'
+  });
+});
+
+const serverlessHandler = serverless(app, {
   request: (req, event, context) => {
-    if (event.body) {
-      if (typeof event.body === 'string') {
+    if (event && event.body) {
+      if (typeof event.body === 'string' && event.body.trim().length > 0) {
         try {
           req.body = JSON.parse(event.body);
         } catch (e) {
@@ -84,3 +89,10 @@ module.exports.handler = serverless(app, {
     }
   }
 });
+
+module.exports.handler = async (event, context) => {
+  if (context) {
+    context.callbackWaitsForEmptyEventLoop = false;
+  }
+  return await serverlessHandler(event, context);
+};

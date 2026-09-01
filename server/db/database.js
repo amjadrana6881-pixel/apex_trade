@@ -1,14 +1,22 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 let db = null;
 let usePureJsFallback = false;
 
-const isServerless = Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
+const isServerless = Boolean(
+  process.env.NETLIFY || 
+  process.env.AWS_LAMBDA_FUNCTION_NAME || 
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.AWS_EXECUTION_ENV ||
+  process.env.NETLIFY_DEV ||
+  (process.env.NODE_ENV === 'production' && !process.env.RUN_LOCAL_SQLITE)
+);
 
-// 1. Try loading native better-sqlite3 ONLY in non-serverless environment
+// 1. Try loading native better-sqlite3 ONLY in local/non-serverless environment
 if (!isServerless) {
   try {
     const moduleName = 'better-sqlite3';
@@ -26,34 +34,136 @@ if (!isServerless) {
   usePureJsFallback = true;
 }
 
-// 2. Pure-JS Resilient Database Engine (Zero Binary Dependencies - 100% Netlify Compatible)
+// 2. Pure-JS Resilient In-Memory & Persisted Database Engine (100% Netlify Serverless Compatible)
 if (usePureJsFallback || !db) {
-  const storePath = path.join(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME ? '/tmp' : __dirname, 'apextrade_store.json');
+  const storePath = path.join(os.tmpdir(), 'apextrade_store.json');
+
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@apextrade.net').toLowerCase().trim();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const salt = bcrypt.genSaltSync(10);
+  const adminHash = bcrypt.hashSync(adminPassword, salt);
+
+  const defaultPairs = [
+    { symbol: 'XAUUSD', name: 'Gold/USD', category: 'Commodities', current_price: 2894.50, change: 1.24, payout_rate: 88, is_active: 1, image_url: '/images/Gold.jpg' },
+    { symbol: 'XAGUSD', name: 'Silver/USD', category: 'Commodities', current_price: 32.40, change: -0.45, payout_rate: 85, is_active: 1, image_url: '/images/Silver.jpg' },
+    { symbol: 'USOIL', name: 'Crude Oil', category: 'Commodities', current_price: 74.80, change: 2.15, payout_rate: 85, is_active: 1, image_url: '/images/Oil.jpg' },
+    { symbol: 'GAS', name: 'Natural Gas', category: 'Commodities', current_price: 2.85, change: -1.10, payout_rate: 82, is_active: 1, image_url: '/images/gas.jpg' },
+    { symbol: 'EURUSD', name: 'Euro/USD', category: 'Forex', current_price: 1.0842, change: 0.35, payout_rate: 87, is_active: 1, image_url: '/images/eurusd.jpg' },
+    { symbol: 'USDJPY', name: 'USD/JPY', category: 'Forex', current_price: 154.60, change: -0.22, payout_rate: 86, is_active: 1, image_url: '/images/usdjpy.jpg' },
+    { symbol: 'GBPJPY', name: 'GBP/JPY', category: 'Forex', current_price: 196.20, change: 0.58, payout_rate: 85, is_active: 1, image_url: '/images/gbpjpy.jpg' },
+    { symbol: 'AUDNZD', name: 'AUD/NZD', category: 'Forex', current_price: 1.1025, change: -0.15, payout_rate: 84, is_active: 1, image_url: '/images/AUDNZD.jpg' },
+    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', category: 'Crypto', current_price: 91450.00, change: 3.42, payout_rate: 90, is_active: 1, image_url: '/images/Bitcoin.jpg' },
+    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', category: 'Crypto', current_price: 3420.00, change: 2.85, payout_rate: 88, is_active: 1, image_url: '/images/ethereum.jpg' },
+    { symbol: 'SOLUSDT', name: 'Solana/USDT', category: 'Crypto', current_price: 198.50, change: 5.60, payout_rate: 86, is_active: 1, image_url: '/images/SOLANA.jpg' },
+    { symbol: 'XRPUSDT', name: 'Ripple/USDT', category: 'Crypto', current_price: 2.45, change: 4.10, payout_rate: 85, is_active: 1, image_url: '/images/xrp.jpg' },
+    { symbol: 'AAPL', name: 'Apple Inc.', category: 'Stocks', current_price: 232.80, change: 1.15, payout_rate: 85, is_active: 1, image_url: '/images/apple.jpg' },
+    { symbol: 'TSLA', name: 'Tesla Inc.', category: 'Stocks', current_price: 288.40, change: -1.80, payout_rate: 87, is_active: 1, image_url: '/images/TESLA.jpg' },
+    { symbol: 'GOOG', name: 'Alphabet Google', category: 'Stocks', current_price: 184.20, change: 0.92, payout_rate: 85, is_active: 1, image_url: '/images/google.jpg' },
+    { symbol: 'META', name: 'Meta Platforms', category: 'Stocks', current_price: 620.50, change: 2.40, payout_rate: 86, is_active: 1, image_url: '/images/facebook.jpg' }
+  ];
+
+  const defaultCryptoWallets = [
+    {
+      id: 'wallet-trc20',
+      network: 'TRC-20',
+      network_name: 'USDT (TRC-20 Network)',
+      address: 'TYDzsYbm2n9vVqF8cWwQeP7Z8xK9LmN4aB',
+      instructions: 'Send only USDT TRC-20 to this address. Minimum deposit $10. Upload TXID & receipt screenshot.',
+      qr_code: '',
+      is_active: 1
+    },
+    {
+      id: 'wallet-bep20',
+      network: 'BEP-20',
+      network_name: 'USDT (BNB Smart Chain BEP-20)',
+      address: '0x32A4B892F74Ce91B991F268153A47C1a84f3299E',
+      instructions: 'Send only BSC BEP-20 USDT. Lowest network gas fee.',
+      qr_code: '',
+      is_active: 1
+    },
+    {
+      id: 'wallet-erc20',
+      network: 'ERC-20',
+      network_name: 'USDT (Ethereum ERC-20)',
+      address: '0x71C5A8c9F4F96E69888941785A8297bcf5f74B81',
+      instructions: 'Send only ERC-20 tokens to this address. Ensure network gas fee is included.',
+      qr_code: '',
+      is_active: 1
+    }
+  ];
 
   let store = {
-    users: [],
-    trading_pairs: [],
-    signals: [],
+    users: [
+      {
+        id: 'admin-root-001',
+        name: 'ApexTrade Master Admin',
+        email: adminEmail,
+        password: adminHash,
+        role: 'admin',
+        wallet_balance: 50000.00,
+        tradeable_amount: 50000.00,
+        investment_balance: 0,
+        referral_code: 'APEXADMIN',
+        referred_by: '',
+        phone: '',
+        kyc_status: 'VERIFIED',
+        kyc_doc: '',
+        status: 'ACTIVE',
+        trade_mode: 'AUTO',
+        custom_win_rate: 0.50,
+        withdrawal_password: '',
+        saved_usdt_address: '',
+        saved_usdt_network: 'TRC-20',
+        created_at: new Date().toISOString()
+      }
+    ],
+    trading_pairs: defaultPairs,
+    signals: [
+      {
+        id: 'sig-today-001',
+        title: `${new Date().toLocaleDateString('en-GB')}, Day Trading Signal`,
+        instrument: 'BTCUSDT',
+        order_type: 'BUY',
+        min_capital: 10.00,
+        execution_time_pst: '07:00 PM (PST)',
+        duration_seconds: 180,
+        profit_percentage: 5.00,
+        outcome: 'WIN',
+        status: 'ACTIVE',
+        disclaimer: 'Disclaimer: Forex and CFD trading involve high risk. Execute only during official signal window.'
+      }
+    ],
     trades: [],
     deposits: [],
     withdrawals: [],
-    deposit_wallets: [],
+    deposit_wallets: defaultCryptoWallets,
     investment_packages: [],
     user_investments: [],
     wheel_prizes: [],
     user_spins: [],
     announcements: [],
-    system_settings: {},
+    system_settings: {
+      min_deposit: '10',
+      min_withdrawal: '10',
+      withdrawal_fee_percent: '10',
+      enforce_signal_only: 'true',
+      referral_level1: '10',
+      referral_level2: '5',
+      referral_level3: '2'
+    },
     support_messages: [],
     otp_codes: []
   };
 
-  // Load existing data if file exists
-  if (fs.existsSync(storePath)) {
-    try {
-      store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) };
-    } catch (e) {}
-  }
+  // Load existing data if file exists in /tmp
+  try {
+    if (fs.existsSync(storePath)) {
+      const parsed = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+      if (parsed && typeof parsed === 'object') {
+        store = { ...store, ...parsed };
+      }
+    }
+  } catch (e) {}
 
   const saveStore = () => {
     try {
@@ -69,9 +179,6 @@ if (usePureJsFallback || !db) {
 
       return {
         get: (...params) => {
-          // Binding object if single object passed
-          const paramObj = (params.length === 1 && typeof params[0] === 'object' && params[0] !== null) ? params[0] : null;
-
           // 1. Users queries
           if (/SELECT id FROM users WHERE role = \? OR email = \?/i.test(normalizedSql)) {
             const [role, email] = params;
@@ -130,6 +237,10 @@ if (usePureJsFallback || !db) {
           // 6. Deposits / Wallets
           if (/SELECT id FROM deposit_wallets/i.test(normalizedSql)) {
             return store.deposit_wallets[0] || null;
+          }
+          if (/SELECT \* FROM trading_pairs WHERE symbol = \?/i.test(normalizedSql)) {
+            const symbol = String(params[0] || '').toUpperCase();
+            return store.trading_pairs.find(p => p.symbol === symbol) || null;
           }
 
           return null;
@@ -211,8 +322,6 @@ if (usePureJsFallback || !db) {
         },
 
         run: (...params) => {
-          const paramObj = (params.length === 1 && typeof params[0] === 'object' && params[0] !== null) ? params[0] : null;
-
           // 1. Insert User
           if (/INSERT INTO users/i.test(normalizedSql)) {
             const [id, name, email, password, role, wallet_balance, tradeable_amount, referral_code, referred_by] = params;
@@ -373,34 +482,6 @@ if (usePureJsFallback || !db) {
             return { changes: 1 };
           }
 
-          // 10. Insert Trading Pair (paramObj support)
-          if (/INSERT OR IGNORE INTO trading_pairs/i.test(normalizedSql) && paramObj) {
-            if (!store.trading_pairs.some(p => p.symbol === paramObj.symbol)) {
-              store.trading_pairs.push({
-                symbol: paramObj.symbol,
-                name: paramObj.name,
-                category: paramObj.category,
-                current_price: paramObj.price,
-                change: paramObj.change,
-                payout_rate: paramObj.payout,
-                is_active: 1,
-                image_url: paramObj.img || ''
-              });
-              saveStore();
-            }
-            return { changes: 1 };
-          }
-
-          // 11. Insert Setting
-          if (/INSERT OR IGNORE INTO system_settings/i.test(normalizedSql)) {
-            const [key, value] = params;
-            if (store.system_settings[key] === undefined) {
-              store.system_settings[key] = value;
-              saveStore();
-            }
-            return { changes: 1 };
-          }
-
           saveStore();
           return { changes: 1 };
         }
@@ -409,9 +490,12 @@ if (usePureJsFallback || !db) {
   };
 }
 
-// Initialize and seed default system data
+// 3. Initialize and seed default database schema for native SQLite (local mode)
 function initDatabase() {
-  // 1. Users table
+  if (usePureJsFallback || !db || isServerless) {
+    return;
+  }
+
   try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS users (
@@ -443,139 +527,36 @@ function initDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
-  } catch (e) {}
 
-  seedDefaultData();
+    seedDefaultData();
+  } catch (e) {}
 }
 
 function seedDefaultData() {
-  // 1. Seed & Sync Master Super Admin User from Environment Variables
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@apextrade.net').toLowerCase().trim();
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync(adminPassword, salt);
+  if (!db || isServerless) return;
 
-  const existingAdmin = db.prepare('SELECT id FROM users WHERE role = ? OR email = ?').get('admin', adminEmail);
-  if (!existingAdmin) {
-    db.prepare(`
-      INSERT INTO users (id, name, email, password, role, wallet_balance, tradeable_amount, referral_code)
-      VALUES (?, ?, ?, ?, 'admin', 50000.00, 50000.00, ?)
-    `).run(
-      'admin-root-001',
-      'ApexTrade Master Admin',
-      adminEmail,
-      hash,
-      'APEXADMIN'
-    );
-    console.log(`🛡️ [ADMIN SEED] Super Admin created: ${adminEmail}`);
-  } else {
-    // Keep password and email synchronized if changed in .env
-    db.prepare('UPDATE users SET email = ?, password = ? WHERE id = ?').run(adminEmail, hash, existingAdmin.id);
-    console.log(`🛡️ [ADMIN SYNC] Super Admin synced with .env: ${adminEmail}`);
-  }
+  try {
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@apextrade.net').toLowerCase().trim();
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(adminPassword, salt);
 
-  // 2. Seed Real Active Trading Pairs
-  const defaultPairs = [
-    // Commodities
-    { symbol: 'XAUUSD', name: 'Gold/USD', category: 'Commodities', price: 2894.50, change: 1.24, payout: 88, img: '/images/Gold.jpg' },
-    { symbol: 'XAGUSD', name: 'Silver/USD', category: 'Commodities', price: 32.40, change: -0.45, payout: 85, img: '/images/Silver.jpg' },
-    { symbol: 'USOIL', name: 'Crude Oil', category: 'Commodities', price: 74.80, change: 2.15, payout: 85, img: '/images/Oil.jpg' },
-    { symbol: 'GAS', name: 'Natural Gas', category: 'Commodities', price: 2.85, change: -1.10, payout: 82, img: '/images/gas.jpg' },
-    // Forex
-    { symbol: 'EURUSD', name: 'Euro/USD', category: 'Forex', price: 1.0842, change: 0.35, payout: 87, img: '/images/eurusd.jpg' },
-    { symbol: 'USDJPY', name: 'USD/JPY', category: 'Forex', price: 154.60, change: -0.22, payout: 86, img: '/images/usdjpy.jpg' },
-    { symbol: 'GBPJPY', name: 'GBP/JPY', category: 'Forex', price: 196.20, change: 0.58, payout: 85, img: '/images/gbpjpy.jpg' },
-    { symbol: 'AUDNZD', name: 'AUD/NZD', category: 'Forex', price: 1.1025, change: -0.15, payout: 84, img: '/images/AUDNZD.jpg' },
-    // Crypto
-    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', category: 'Crypto', price: 91450.00, change: 3.42, payout: 90, img: '/images/Bitcoin.jpg' },
-    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', category: 'Crypto', price: 3420.00, change: 2.85, payout: 88, img: '/images/ethereum.jpg' },
-    { symbol: 'SOLUSDT', name: 'Solana/USDT', category: 'Crypto', price: 198.50, change: 5.60, payout: 86, img: '/images/SOLANA.jpg' },
-    { symbol: 'XRPUSDT', name: 'Ripple/USDT', category: 'Crypto', price: 2.45, change: 4.10, payout: 85, img: '/images/xrp.jpg' },
-    // Stocks
-    { symbol: 'AAPL', name: 'Apple Inc.', category: 'Stocks', price: 232.80, change: 1.15, payout: 85, img: '/images/apple.jpg' },
-    { symbol: 'TSLA', name: 'Tesla Inc.', category: 'Stocks', price: 288.40, change: -1.80, payout: 87, img: '/images/TESLA.jpg' },
-    { symbol: 'GOOG', name: 'Alphabet Google', category: 'Stocks', price: 184.20, change: 0.92, payout: 85, img: '/images/google.jpg' },
-    { symbol: 'META', name: 'Meta Platforms', category: 'Stocks', price: 620.50, change: 2.40, payout: 86, img: '/images/facebook.jpg' },
-  ];
-
-  const insertPair = db.prepare(`
-    INSERT OR IGNORE INTO trading_pairs (symbol, name, category, current_price, change, payout_rate, is_active, image_url)
-    VALUES (@symbol, @name, @category, @price, @change, @payout, 1, @img)
-  `);
-
-  for (const pair of defaultPairs) {
-    insertPair.run(pair);
-  }
-
-  // 3. Seed Today's Active Daily Signal
-  const today = new Date().toLocaleDateString('en-GB');
-  db.prepare(`
-    INSERT OR REPLACE INTO signals (id, title, instrument, order_type, min_capital, execution_time_pst, duration_seconds, profit_percentage, outcome, status, disclaimer)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'WIN', 'ACTIVE', ?)
-  `).run(
-    'sig-today-001',
-    `${today}, Day Trading Signal`,
-    'BTCUSDT',
-    'BUY',
-    10.00,
-    '07:00 PM (PST)',
-    180,
-    5.00,
-    `Disclaimer: Forex and CFD trading involve high risk. Execute only during official signal window. Outside trades are subject to 100% loss.`
-  );
-
-  // 4. Seed Deposit Wallets
-  const defaultCryptoWallets = [
-    {
-      id: 'wallet-trc20',
-      network: 'TRC-20',
-      network_name: 'USDT (TRC-20 Network)',
-      address: 'TYDzsYbm2n9vVqF8cWwQeP7Z8xK9LmN4aB',
-      instructions: 'Send only USDT TRC-20 to this address. Minimum deposit $10. Upload TXID & receipt screenshot.',
-      qr_code: ''
-    },
-    {
-      id: 'wallet-bep20',
-      network: 'BEP-20',
-      network_name: 'USDT (BNB Smart Chain BEP-20)',
-      address: '0x32A4B892F74Ce91B991F268153A47C1a84f3299E',
-      instructions: 'Send only BSC BEP-20 USDT. Lowest network gas fee.',
-      qr_code: ''
-    },
-    {
-      id: 'wallet-erc20',
-      network: 'ERC-20',
-      network_name: 'USDT (Ethereum ERC-20)',
-      address: '0x71C5A8c9F4F96E69888941785A8297bcf5f74B81',
-      instructions: 'Send only ERC-20 tokens to this address. Ensure network gas fee is included.',
-      qr_code: ''
+    const existingAdmin = db.prepare('SELECT id FROM users WHERE role = ? OR email = ?').get('admin', adminEmail);
+    if (!existingAdmin) {
+      db.prepare(`
+        INSERT INTO users (id, name, email, password, role, wallet_balance, tradeable_amount, referral_code)
+        VALUES (?, ?, ?, ?, 'admin', 50000.00, 50000.00, ?)
+      `).run(
+        'admin-root-001',
+        'ApexTrade Master Admin',
+        adminEmail,
+        hash,
+        'APEXADMIN'
+      );
+    } else {
+      db.prepare('UPDATE users SET email = ?, password = ? WHERE id = ?').run(adminEmail, hash, existingAdmin.id);
     }
-  ];
-
-  const insertWallet = db.prepare(`
-    INSERT OR REPLACE INTO deposit_wallets (id, network, address, network_name, instructions, qr_code, is_active)
-    VALUES (@id, @network, @address, @network_name, @instructions, @qr_code, 1)
-  `);
-
-  for (const w of defaultCryptoWallets) {
-    insertWallet.run(w);
-  }
-
-  // 5. Seed System Settings
-  const defaultSettings = [
-    { key: 'min_deposit', value: '10' },
-    { key: 'min_withdrawal', value: '10' },
-    { key: 'withdrawal_fee_percent', value: '10' },
-    { key: 'enforce_signal_only', value: 'true' },
-    { key: 'referral_level1', value: '10' },
-    { key: 'referral_level2', value: '5' },
-    { key: 'referral_level3', value: '2' },
-  ];
-
-  const insertSetting = db.prepare('INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)');
-  for (const s of defaultSettings) {
-    insertSetting.run(s.key, s.value);
-  }
+  } catch (e) {}
 }
 
 initDatabase();
