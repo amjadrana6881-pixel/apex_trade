@@ -11,9 +11,9 @@ export async function GET() {
     await connectToDatabase();
     await tickMarketPrices();
     const pairs = await TradingPair.find({ is_active: true });
-    return NextResponse.json({ success: true, data: pairs });
+    return NextResponse.json({ success: true, pairs, data: pairs });
   } catch (err) {
     console.error('Error fetching trading pairs:', err);
-    return NextResponse.json({ success: false, message: 'Failed to fetch trading pairs.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Failed to fetch trading pairs.', pairs: [], data: [] }, { status: 500 });
   }
 }

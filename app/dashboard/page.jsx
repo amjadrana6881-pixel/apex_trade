@@ -39,12 +39,16 @@ export default function Dashboard() {
       try {
         const res = await fetch(`${API_BASE}/api/trading/pairs`);
         const data = await res.json();
-        if (isMounted && data.success && Array.isArray(data.pairs)) {
-          setPairs(data.pairs);
+        if (isMounted) {
+          const list = Array.isArray(data.pairs) ? data.pairs : Array.isArray(data.data) ? data.data : [];
+          if (list.length > 0) {
+            setPairs(list);
+          }
           setLoadingPairs(false);
         }
       } catch (err) {
         console.error('Error loading trading pairs:', err);
+        if (isMounted) setLoadingPairs(false);
       }
     };
 

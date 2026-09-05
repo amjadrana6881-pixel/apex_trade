@@ -69,8 +69,11 @@ function TradingContent() {
       try {
         const res = await fetch(`${API_BASE}/api/trading/pairs`);
         const data = await res.json();
-        if (isMounted && data.success && Array.isArray(data.pairs)) {
-          setPairs(data.pairs);
+        if (isMounted) {
+          const list = Array.isArray(data.pairs) ? data.pairs : Array.isArray(data.data) ? data.data : [];
+          if (list.length > 0) {
+            setPairs(list);
+          }
         }
       } catch (err) {
         console.error('Failed to load pairs:', err);
