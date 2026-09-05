@@ -121,15 +121,31 @@ export default function AdminDashboardPage() {
   const [adminSending, setAdminSending] = useState(false);
   const adminChatEndRef = useRef(null);
 
+  const getAdminToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('apextrade_admin_token') || (user?.role === 'admin' ? token : null);
+  };
+
   useEffect(() => {
-    if (token) {
-      if (user && user.role !== 'admin') {
-        router.push('/dashboard');
-        return;
-      }
+    const admTok = getAdminToken();
+    if (admTok) {
       fetchAllData();
     }
   }, [token, user]);
+
+  // Periodic Polling for Live Chat & Incoming Messages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const admTok = getAdminToken();
+      if (admTok) {
+        fetchSupportConversations();
+        if (activeChatUserId && tab === 'support') {
+          fetchConversationMessages(activeChatUserId);
+        }
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [activeChatUserId, tab]);
 
   const fetchAllData = () => {
     fetchStats();
@@ -148,7 +164,9 @@ export default function AdminDashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setStats(data.data || {});
     } catch (e) { console.error(e); }
@@ -156,7 +174,9 @@ export default function AdminDashboardPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setUsers(data.data || []);
     } catch (e) { console.error(e); }
@@ -164,7 +184,9 @@ export default function AdminDashboardPage() {
 
   const fetchSignals = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/signals/admin/list`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/signals/admin/list`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setSignals(data.data || []);
     } catch (e) { console.error(e); }
@@ -172,7 +194,9 @@ export default function AdminDashboardPage() {
 
   const fetchTrades = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/trades`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/trades`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setTrades(data.data || []);
     } catch (e) { console.error(e); }
@@ -180,7 +204,9 @@ export default function AdminDashboardPage() {
 
   const fetchDeposits = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/deposits`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/deposits`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setDeposits(data.data || []);
     } catch (e) { console.error(e); }
@@ -188,7 +214,9 @@ export default function AdminDashboardPage() {
 
   const fetchWithdrawals = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/withdrawals`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/withdrawals`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setWithdrawals(data.data || []);
     } catch (e) { console.error(e); }
@@ -196,7 +224,9 @@ export default function AdminDashboardPage() {
 
   const fetchWallets = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/wallets`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/wallets`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setWallets(data.data || []);
     } catch (e) { console.error(e); }
@@ -204,7 +234,9 @@ export default function AdminDashboardPage() {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/packages`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/packages`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setPackages(data.data || []);
     } catch (e) { console.error(e); }
@@ -212,7 +244,9 @@ export default function AdminDashboardPage() {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/announcements`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setAnnouncements(data.data || []);
     } catch (e) { console.error(e); }
@@ -220,7 +254,9 @@ export default function AdminDashboardPage() {
 
   const fetchKyc = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/kyc`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/kyc`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setKycUsers(data.data || []);
     } catch (e) { console.error(e); }
@@ -228,7 +264,9 @@ export default function AdminDashboardPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
       if (data.success) setSettings(data.data || {});
     } catch (e) { console.error(e); }
@@ -236,41 +274,40 @@ export default function AdminDashboardPage() {
 
   const fetchSupportConversations = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/support/admin/conversations`, { headers: { Authorization: `Bearer ${token}` } });
+      const admTok = getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/support/admin/conversations`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
-      if (data.success) setSupportConversations(data.data || []);
+      if (data.success && Array.isArray(data.data)) {
+        setSupportConversations(data.data);
+      }
     } catch (e) { console.error(e); }
   };
 
   const fetchConversationMessages = async (userId) => {
     try {
       setActiveChatUserId(userId);
+      const admTok = getAdminToken();
+      if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/support/admin/conversation/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${admTok}` }
       });
       const data = await res.json();
-      if (data.success) {
-        setActiveChatMessages(data.data || []);
+      if (data.success && data.data) {
+        const msgList = Array.isArray(data.data.messages) 
+          ? data.data.messages 
+          : (Array.isArray(data.data) ? data.data : []);
+        setActiveChatMessages(msgList);
       }
     } catch (e) { console.error(e); }
   };
-
-  // Poll active chat messages if activeChatUserId is open
-  useEffect(() => {
-    if (activeChatUserId && tab === 'support') {
-      const interval = setInterval(() => {
-        fetchConversationMessages(activeChatUserId);
-      }, 2500);
-      return () => clearInterval(interval);
-    }
-  }, [activeChatUserId, tab]);
 
   // Actions
   const handleDepositAction = async (id, action) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/deposit/${id}/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ action })
       });
       const data = await res.json();
@@ -288,7 +325,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/withdrawal/${id}/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ action })
       });
       const data = await res.json();
@@ -306,7 +343,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/kyc/${id}/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ action })
       });
       const data = await res.json();
@@ -324,7 +361,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/signals/admin/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify(newSignal)
       });
       const data = await res.json();
@@ -342,7 +379,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/signals/admin/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getAdminToken()}` }
       });
       const data = await res.json();
       if (data.success) {
@@ -356,7 +393,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/wallets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify(newWallet)
       });
       const data = await res.json();
@@ -375,7 +412,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/wallets/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getAdminToken()}` }
       });
       const data = await res.json();
       if (data.success) fetchWallets();
@@ -392,7 +429,7 @@ export default function AdminDashboardPage() {
       const finalAmount = balanceActionType === 'ADD' ? amt : -amt;
       const res = await fetch(`${API_BASE}/api/admin/user/${balanceModalUser._id || balanceModalUser.id}/balance`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ amount: finalAmount, reason: balanceReason || 'Admin Manual Adjustment' })
       });
       const data = await res.json();
@@ -412,7 +449,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/user/${userId}/trade-mode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ tradeMode })
       });
       const data = await res.json();
@@ -426,7 +463,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/user/${userId}/status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ status })
       });
       const data = await res.json();
@@ -447,7 +484,7 @@ export default function AdminDashboardPage() {
 
       const res = await fetch(`${API_BASE}/api/support/admin/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify({ userId: activeChatUserId, message: text })
       });
 
@@ -468,7 +505,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/announcements`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
         body: JSON.stringify(newAnn)
       });
       const data = await res.json();
@@ -485,7 +522,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/announcements/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getAdminToken()}` }
       });
       const data = await res.json();
       if (data.success) fetchAnnouncements();

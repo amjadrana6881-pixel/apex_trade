@@ -23,7 +23,9 @@ export async function GET(request) {
         return {
           user_id: uid.toString(),
           name: u.name || 'Trader',
+          user_name: u.name || 'Trader',
           email: u.email || 'trader@trade.com',
+          user_email: u.email || 'trader@trade.com',
           wallet_balance: u.wallet_balance || 0,
           last_message: lastMsg?.message || (lastMsg?.image_url ? '📷 [Image Attachment]' : ''),
           last_image: lastMsg?.image_url || '',
