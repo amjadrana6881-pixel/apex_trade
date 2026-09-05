@@ -27,14 +27,19 @@ yarn-error.log*
 .vercel/
 
 # OS & IDE Cache
-.DS_Store
-Thumbs.db
-*.pem
-.idea/
-.vscode/
+# Secrets & Cloud Credentials
+*firebase-adminsdk*.json
+firebase-service-account.json
+json_files/*adminsdk*.json
 
-# SQLite & Legacy DBs
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
+# Android Build & Cache
+.gradle/
+android-user/.gradle/
+android-admin/.gradle/
+android-user/build/
+android-admin/build/
+android-user/app/build/
+android-admin/app/build/
+local.properties
+*.apk
+*.aab

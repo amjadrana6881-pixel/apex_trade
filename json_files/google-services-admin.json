@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "765062308004",
+    "project_id": "apextrade-pro-995ad",
+    "storage_bucket": "apextrade-pro-995ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:765062308004:android:8dcff035d0f4ae7ed48631",
+        "android_client_info": {
+          "package_name": "com.apextrade.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmzAG7tSNsvur-Hw9TEXnGgCXUflU7XHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:765062308004:android:639b09d793e13ab9d48631",
+        "android_client_info": {
+          "package_name": "com.apextrade.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmzAG7tSNsvur-Hw9TEXnGgCXUflU7XHo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
