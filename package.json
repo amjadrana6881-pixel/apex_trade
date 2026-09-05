@@ -31,6 +31,6 @@
     "uuid": "^14.0.2"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.2.0"
+    "@netlify/plugin-nextjs": "^5.15.13"
   }
 }
