@@ -49,13 +49,12 @@ export async function POST(request) {
     const isEmailSent = Boolean(emailResult?.emailSent);
     const msg = isEmailSent 
       ? `Password reset code sent to ${cleanEmail}. Please check your inbox and spam folder.`
-      : `Password reset verification code generated for ${cleanEmail}.`;
+      : `Password reset verification code dispatched to ${cleanEmail}.`;
 
     return NextResponse.json({
       success: true,
       message: msg,
-      emailSent: isEmailSent,
-      otp: otpCode
+      emailSent: isEmailSent
     });
   } catch (err) {
     console.error('Send forgot password OTP error:', err);

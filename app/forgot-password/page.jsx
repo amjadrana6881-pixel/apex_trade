@@ -32,9 +32,6 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-  const [copiedOtp, setCopiedOtp] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +39,7 @@ export default function ForgotPasswordPage() {
 
   // Step 1: Request OTP
   const handleRequestOtp = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!email.trim()) return setError('Please enter your registered email address.');
 
     try {
@@ -56,8 +53,6 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (data.success) {
-        setGeneratedOtp(data.otp || '');
-        setEmailSent(Boolean(data.emailSent));
         setStep(2);
       } else {
         setError(data.message || 'Failed to send reset code.');
@@ -79,7 +74,7 @@ export default function ForgotPasswordPage() {
       return setError('Password must be at least 6 characters long.');
     }
     if (!otp.trim()) {
-      return setError('Please enter the 6-digit verification code.');
+      return setError('Please enter the 6-digit verification code sent to your email.');
     }
 
     try {
@@ -107,14 +102,6 @@ export default function ForgotPasswordPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyOtpToClipboard = () => {
-    if (!generatedOtp) return;
-    navigator.clipboard.writeText(generatedOtp);
-    setCopiedOtp(true);
-    setOtp(generatedOtp);
-    setTimeout(() => setCopiedOtp(false), 2000);
   };
 
   return (
@@ -252,41 +239,15 @@ export default function ForgotPasswordPage() {
               <form onSubmit={handleResetPassword} className="space-y-3 sm:space-y-3.5">
                 
                 {/* Email Sent Notification Box */}
-                {emailSent ? (
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start gap-2.5 text-xs">
-                    <Inbox className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold block">Reset Code Dispatched!</span>
-                      <span>We sent a 6-digit reset OTP to <strong>{email}</strong>. Check inbox & spam folder.</span>
-                    </div>
+                <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-900 flex items-start gap-3 text-xs">
+                  <Inbox className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold block text-sm text-blue-950 mb-0.5">Reset Code Dispatched</span>
+                    <span className="leading-relaxed">
+                      We sent a 6-digit reset code to <strong>{email}</strong>. Please check your inbox (and spam folder) and enter it below.
+                    </span>
                   </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 flex items-start gap-2.5 text-xs">
-                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold block">Reset Code Generated</span>
-                      <span>Enter the 6-digit code to update your password.</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Instant OTP Badge */}
-                {generatedOtp && (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-slate-500 block">YOUR 6-DIGIT OTP CODE</span>
-                      <span className="font-mono text-lg font-black text-blue-700 tracking-widest">{generatedOtp}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={copyOtpToClipboard}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer shadow-xs transition-all"
-                    >
-                      {copiedOtp ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedOtp ? 'Copied' : 'Auto Fill'}</span>
-                    </button>
-                  </div>
-                )}
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 text-center">6-Digit OTP Code</label>
@@ -294,11 +255,23 @@ export default function ForgotPasswordPage() {
                     type="text"
                     required
                     maxLength="6"
-                    placeholder="123456"
+                    placeholder="••••••"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
                   />
+                </div>
+
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-slate-500">Didn&apos;t receive the code?</span>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleRequestOtp}
+                    className="font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Resend Code
+                  </button>
                 </div>
 
                 <div>

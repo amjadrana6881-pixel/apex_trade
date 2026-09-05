@@ -52,13 +52,12 @@ export async function POST(request) {
     const isEmailSent = Boolean(emailResult?.emailSent);
     const msg = isEmailSent 
       ? `A 6-digit verification code has been sent to ${cleanEmail}. Please check your inbox and spam folder.`
-      : `A 6-digit verification code has been generated for ${cleanEmail}.`;
+      : `A 6-digit verification code has been dispatched to ${cleanEmail}.`;
 
     return NextResponse.json({
       success: true,
       message: msg,
-      emailSent: isEmailSent,
-      otp: otpCode // Provided for instant seamless UI verification & testing
+      emailSent: isEmailSent
     });
   } catch (err) {
     console.error('Send register OTP error:', err);

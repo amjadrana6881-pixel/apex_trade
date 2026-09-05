@@ -42,11 +42,6 @@ function RegisterForm() {
   
   // OTP States
   const [otp, setOtp] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-  const [otpNotice, setOtpNotice] = useState('');
-  const [copiedOtp, setCopiedOtp] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -58,7 +53,7 @@ function RegisterForm() {
 
   // Step 1: Request OTP
   const handleProceedToOtp = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!name.trim()) return setError('Please enter your full legal name.');
     if (!email.trim()) return setError('Please enter your valid email address.');
     if (password.length < 6) return setError('Password must be at least 6 characters.');
@@ -83,9 +78,6 @@ function RegisterForm() {
       }
 
       if (data.success) {
-        setGeneratedOtp(data.otp || '');
-        setEmailSent(Boolean(data.emailSent));
-        setOtpNotice(data.message || 'Verification code generated.');
         setStep(2);
       } else {
         setError(data.message || 'Failed to send OTP code.');
@@ -101,7 +93,7 @@ function RegisterForm() {
   // Step 2: Verify OTP and complete registration
   const handleVerifyAndRegister = async (e) => {
     e.preventDefault();
-    if (!otp.trim()) return setError('Please enter the 6-digit verification code.');
+    if (!otp.trim()) return setError('Please enter the 6-digit verification code sent to your email.');
 
     try {
       setLoading(true);
@@ -139,14 +131,6 @@ function RegisterForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyOtpToClipboard = () => {
-    if (!generatedOtp) return;
-    navigator.clipboard.writeText(generatedOtp);
-    setCopiedOtp(true);
-    setOtp(generatedOtp);
-    setTimeout(() => setCopiedOtp(false), 2000);
   };
 
   return (
@@ -398,44 +382,18 @@ function RegisterForm() {
 
             {/* STEP 2: OTP VERIFICATION */}
             {step === 2 && (
-              <form onSubmit={handleVerifyAndRegister} className="space-y-3.5">
+              <form onSubmit={handleVerifyAndRegister} className="space-y-4">
                 
                 {/* Email Sent Notification Box */}
-                {emailSent ? (
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start gap-2.5 text-xs">
-                    <Inbox className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold block">Verification Code Sent!</span>
-                      <span>We sent a 6-digit OTP to <strong>{email}</strong>. Please check your inbox.</span>
-                    </div>
+                <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-900 flex items-start gap-3 text-xs">
+                  <Inbox className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold block text-sm text-blue-950 mb-0.5">Verification Code Dispatched</span>
+                    <span className="leading-relaxed">
+                      We sent a 6-digit code to <strong>{email}</strong>. Please check your inbox (and spam folder) and enter it below.
+                    </span>
                   </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 flex items-start gap-2.5 text-xs">
-                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold block">Verification OTP Generated</span>
-                      <span>{otpNotice || `Verification code has been generated for ${email}.`}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Instant Generated OTP Badge */}
-                {generatedOtp && (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-slate-500 block">YOUR 6-DIGIT OTP CODE</span>
-                      <span className="font-mono text-lg font-black text-blue-700 tracking-widest">{generatedOtp}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={copyOtpToClipboard}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs cursor-pointer shadow-xs transition-all"
-                    >
-                      {copiedOtp ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedOtp ? 'Copied' : 'Auto Fill'}</span>
-                    </button>
-                  </div>
-                )}
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 text-center">
@@ -448,8 +406,20 @@ function RegisterForm() {
                     placeholder="••••••"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-center text-xl font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
                   />
+                </div>
+
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-slate-500">Didn&apos;t receive the code?</span>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleProceedToOtp}
+                    className="font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Resend Code
+                  </button>
                 </div>
 
                 <button
