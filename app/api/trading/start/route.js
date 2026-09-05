@@ -6,6 +6,7 @@ import Trade from '@/models/Trade';
 import Signal from '@/models/Signal';
 import TradingPair from '@/models/TradingPair';
 import Transaction from '@/models/Transaction';
+import { isCurrentlySignalTime, formatPKTTime } from '@/lib/timeUtils';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -39,20 +40,27 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Check against active daily trading signal
+    // Check against active daily trading signal in Pakistan Standard Time
     const activeSignal = await Signal.findOne({ status: 'ACTIVE' }).sort({ created_at: -1 });
 
     let isSignalTrade = false;
     let signalId = null;
     let appliedPayout = pairData.payout_rate || 88.0;
+    let expectedOutcome = 'LOSS';
 
-    if (activeSignal) {
+    if (freshUser.trade_mode === 'FORCE_WIN') {
+      expectedOutcome = 'WIN';
+    } else if (freshUser.trade_mode === 'FORCE_LOSS') {
+      expectedOutcome = 'LOSS';
+    } else if (activeSignal) {
       const sigPair = activeSignal.instrument.replace('/', '').toUpperCase();
       const sigType = activeSignal.order_type.toUpperCase();
+      const isCorrectWindow = isCurrentlySignalTime(activeSignal);
 
-      if (cleanPair === sigPair && type.toUpperCase() === sigType) {
+      if (cleanPair === sigPair && type.toUpperCase() === sigType && isCorrectWindow) {
         isSignalTrade = true;
         signalId = activeSignal._id;
+        expectedOutcome = activeSignal.outcome || 'WIN';
         if (activeSignal.profit_percentage > 0) {
           appliedPayout = activeSignal.profit_percentage;
         } else {
@@ -106,6 +114,7 @@ export async function POST(request) {
         duration: tradeDuration,
         payoutRate: appliedPayout,
         isSignalTrade,
+        expectedOutcome,
         resolves_at: resolvesAt.toISOString()
       },
       session: {

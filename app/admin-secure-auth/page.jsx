@@ -33,7 +33,8 @@ export default function AdminLoginPage() {
           return;
         }
 
-        login(data.token, data.user);
+        localStorage.setItem('apextrade_admin_token', data.token);
+        localStorage.setItem('apextrade_admin_user', JSON.stringify(data.user));
         router.push('/admin');
       } else {
         setError(data.message || 'Invalid administrator credentials.');

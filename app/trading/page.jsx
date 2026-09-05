@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 import TradingViewChart from '@/app/components/TradingViewChart';
+import LiveTradePulseGraph from '@/app/components/LiveTradePulseGraph';
+import { formatPKT } from '@/lib/timeUtils';
 
 function TradingContent() {
   const searchParams = useSearchParams();
@@ -452,8 +454,8 @@ function TradingContent() {
                               {isWin ? `+$${Number(t.profit).toFixed(2)}` : `-$${Number(t.amount).toFixed(2)}`}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right text-slate-400">
-                            {new Date(t.created_at || t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <td className="py-3 px-3 text-right text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {formatPKT(t.created_at || t.createdAt)}
                           </td>
                         </tr>
                       );
@@ -731,18 +733,21 @@ function TradingContent() {
               <p className="text-xs text-slate-500">Order: {activeTrade.type} (${Number(activeTrade.amount).toFixed(2)})</p>
             </div>
 
+            {/* Live Real-time Dynamic Trade Pulse Graph */}
+            <LiveTradePulseGraph trade={activeTrade} countdown={countdown} />
+
             {/* Circular Countdown Display */}
-            <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
+            <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
               <div className="w-full h-full rounded-full border-4 border-blue-100 flex items-center justify-center bg-blue-50/40">
                 <div className="text-center">
-                  <span className="text-5xl font-black font-mono text-blue-600">{countdown}</span>
-                  <span className="block text-[11px] font-bold text-slate-400 uppercase mt-0.5">Seconds Left</span>
+                  <span className="text-4xl font-black font-mono text-blue-600">{countdown}</span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase mt-0.5">Seconds Left</span>
                 </div>
               </div>
             </div>
 
             <p className="text-xs text-slate-400">
-              Live trade executing on server. You can minimize this modal safely.
+              Live algorithmic execution in progress. All times in Pakistan Standard Time (PKT).
             </p>
 
             <button

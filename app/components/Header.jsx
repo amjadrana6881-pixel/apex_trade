@@ -1,6 +1,5 @@
 'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,9 +17,11 @@ import {
   Layers,
   Compass,
   HelpCircle,
-  Download
+  Download,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
+import { formatPKTTime } from '@/lib/timeUtils';
 
 export default function Header() {
   const { user, logout, token } = useAuth();
@@ -28,6 +29,25 @@ export default function Header() {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pktTime, setPktTime] = useState('');
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
+
+  useEffect(() => {
+    const updateTime = () => {
+      setPktTime(formatPKTTime(new Date()));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+
+    if (typeof window !== 'undefined') {
+      const adminTok = localStorage.getItem('apextrade_admin_token');
+      if (adminTok || user?.role === 'admin') {
+        setHasAdminAccess(true);
+      }
+    }
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -82,7 +102,25 @@ export default function Header() {
         </div>
 
         {/* Right: Actions & Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+
+          {/* Pakistan Standard Time Live Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200/80 text-[11px] font-black text-blue-800 shrink-0 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+            <span className="font-mono">{pktTime || '07:00 PM PKT'}</span>
+          </div>
+
+          {/* Master Admin Portal Direct Shortcut Button */}
+          {hasAdminAccess && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-red-400 font-black text-xs shadow-xs transition-colors shrink-0"
+              title="Open Super Admin Console"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-red-400" />
+              <span className="hidden md:inline">Admin Portal</span>
+            </Link>
+          )}
 
           {/* Download App Button */}
           <a
