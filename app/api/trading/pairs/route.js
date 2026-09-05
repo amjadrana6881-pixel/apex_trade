@@ -3,6 +3,9 @@ import { connectToDatabase } from '@/lib/db';
 import TradingPair from '@/models/TradingPair';
 import { tickMarketPrices } from '@/lib/marketEngine';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     await connectToDatabase();
