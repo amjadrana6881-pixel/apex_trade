@@ -41,5 +41,5 @@ android-admin/build/
 android-user/app/build/
 android-admin/app/build/
 local.properties
-*.apk
+
 *.aab
