@@ -55,19 +55,19 @@ export default function ClientLayout({ children }) {
         </main>
       </div>
 
-      {/* Floating Quick Live Support Desk Button */}
-      {token && !isChatPage && (
+      {/* Floating Quick Live Support Desk Button (Always above Mobile Footer Menu) */}
+      {!isChatPage && (
         <Link
           href="/contact"
-          className="fixed bottom-18 md:bottom-8 right-4 md:right-8 z-40 flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-xl shadow-blue-500/25 border border-white/20 transition-all hover:scale-105 group"
-          title="Open Live Chat Support"
+          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-50 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-2xl shadow-blue-600/40 border border-white/25 transition-all hover:scale-105 active:scale-95 group cursor-pointer"
+          title="Open Live Chat Support Desk"
         >
-          <div className="relative">
-            <Headphones className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"></span>
+          <div className="relative flex items-center justify-center">
+            <Headphones className="w-4 h-4 text-white group-hover:rotate-12 transition-transform" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white"></span>
           </div>
-          <span className="hidden sm:inline">Live Support</span>
+          <span className="inline font-bold tracking-tight">Live Support</span>
         </Link>
       )}
 

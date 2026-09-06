@@ -15,7 +15,14 @@ import {
   Download,
   Clock,
   Layers,
-  Sparkles
+  Sparkles,
+  User as UserIcon,
+  CheckCircle2,
+  Copy,
+  Check,
+  Headphones,
+  ArrowDownLeft,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 import DailySignalCard from '@/app/components/DailySignalCard';
@@ -28,6 +35,8 @@ export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeSignal, setActiveSignal] = useState(null);
   const [loadingPairs, setLoadingPairs] = useState(true);
+  const [pendingDeposits, setPendingDeposits] = useState([]);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const categories = ['All', 'Crypto', 'Forex', 'Commodities', 'Stocks'];
 
@@ -73,6 +82,35 @@ export default function Dashboard() {
       .catch(console.error);
   }, []);
 
+  // Fetch User Pending Deposits for realtime feedback
+  useEffect(() => {
+    if (!token) return;
+    const checkDeposits = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/wallet/transactions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const depList = Array.isArray(data.data.deposits) 
+            ? data.data.deposits 
+            : [];
+          setPendingDeposits(depList.filter(d => d.status === 'PENDING'));
+        }
+      } catch (e) {}
+    };
+    checkDeposits();
+    const interval = setInterval(checkDeposits, 3000);
+    return () => clearInterval(interval);
+  }, [token]);
+
+  const handleCopyReferral = () => {
+    if (!user?.referral_code) return;
+    navigator.clipboard.writeText(user.referral_code);
+    setCopiedRef(true);
+    setTimeout(() => setCopiedRef(false), 2000);
+  };
+
   const filteredPairs = activeCategory === 'All' 
     ? pairs 
     : pairs.filter(p => p.category?.toLowerCase() === activeCategory.toLowerCase());
@@ -81,6 +119,110 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+
+      {/* 0. LOGGED IN USER PROFILE & VERIFICATION BADGE CARD */}
+      {user && (
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 text-white shadow-xl relative overflow-hidden">
+          {/* Ambient Glows */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* User Identity & Badges */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-2xl shadow-lg shadow-blue-500/30 shrink-0 border border-white/20">
+                {user.name ? user.name[0].toUpperCase() : 'U'}
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                    {user.name || 'Trader Account'}
+                  </h1>
+                  
+                  {/* Verified Trader Badge */}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black tracking-wider uppercase shadow-xs">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    Verified Trader
+                  </span>
+
+                  {/* VIP Level Badge */}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black tracking-wider uppercase">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    VIP Tier 1
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400 font-mono flex items-center gap-2">
+                  <span>{user.email}</span>
+                  {user.referral_code && (
+                    <>
+                      <span>•</span>
+                      <button
+                        onClick={handleCopyReferral}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] font-mono transition-colors cursor-pointer border border-slate-700"
+                        title="Copy Referral Code"
+                      >
+                        {copiedRef ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-400" />}
+                        <span>Ref: {user.referral_code}</span>
+                      </button>
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Balance & Action Shortcuts */}
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              <div className="px-4 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700 flex-1 sm:flex-none">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Spot Available</span>
+                <span className="text-lg font-black font-mono text-emerald-400">
+                  ${walletBal.toFixed(2)}
+                </span>
+              </div>
+
+              <Link
+                href="/wallet"
+                className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-blue-600/30 transition-all cursor-pointer"
+              >
+                <ArrowDownLeft className="w-4 h-4" />
+                <span>Deposit USDT</span>
+              </Link>
+
+              <Link
+                href="/contact"
+                className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs flex items-center gap-1.5 border border-slate-700 transition-colors cursor-pointer"
+              >
+                <Headphones className="w-4 h-4 text-amber-400" />
+                <span>Live Support</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PENDING DEPOSIT IN REVIEW BANNER */}
+      {pendingDeposits.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-900 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black text-amber-900">
+                ⏳ Deposit Request Submitted (${Number(pendingDeposits[0].amount).toFixed(2)} USDT via {pendingDeposits[0].network})
+              </h4>
+              <p className="text-[11px] text-amber-700">
+                Your deposit is currently awaiting blockchain verification by the administration desk. Once verified, it will be credited immediately to your spot balance.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/wallet"
+            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shrink-0 shadow-xs"
+          >
+            View Status
+          </Link>
+        </div>
+      )}
       
       {/* 1. Daily Signal Active Card */}
       {activeSignal && <DailySignalCard signal={activeSignal} />}

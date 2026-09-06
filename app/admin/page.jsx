@@ -41,12 +41,18 @@ import {
   Zap,
   Smartphone,
   Download,
-  Save
+  Save,
+  ArrowLeft,
+  Paperclip,
+  Volume2,
+  VolumeX,
+  MessageSquarePlus,
+  User as UserIcon
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function AdminDashboardPage() {
-  const { token, user, logout } = useAuth();
+  const { token, user, login, logout } = useAuth();
   const router = useRouter();
 
   const [tab, setTab] = useState('overview');
@@ -140,159 +146,310 @@ export default function AdminDashboardPage() {
   const [activeChatUserId, setActiveChatUserId] = useState(null);
   const [activeChatMessages, setActiveChatMessages] = useState([]);
   const [adminChatInput, setAdminChatInput] = useState('');
+  const [adminChatImage, setAdminChatImage] = useState(null);
+  const [adminChatImagePreview, setAdminChatImagePreview] = useState(null);
   const [adminSending, setAdminSending] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const adminChatEndRef = useRef(null);
+  const adminFileInputRef = useRef(null);
+  const prevCountsRef = useRef({ deposits: 0, withdrawals: 0, support: 0, initialized: false });
+
+  // Synthesized notification audio chime
+  const playNotificationSound = () => {
+    if (!soundEnabled || typeof window === 'undefined') return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now); // D5 tone
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.25);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880, now + 0.1); // A5 tone
+      gain2.gain.setValueAtTime(0.18, now + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.1);
+      osc2.stop(now + 0.45);
+    } catch (e) {}
+  };
+
+  const [authRequired, setAuthRequired] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('roman@nabil.com');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
+  const [adminAuthError, setAdminAuthError] = useState('');
 
   const getAdminToken = () => {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('apextrade_admin_token') || (user?.role === 'admin' ? token : null);
+    return (
+      localStorage.getItem('apextrade_admin_token') ||
+      localStorage.getItem('apextrade_token') ||
+      token ||
+      null
+    );
+  };
+
+  const handleMasterLogin = async (e) => {
+    e?.preventDefault();
+    try {
+      setAdminAuthLoading(true);
+      setAdminAuthError('');
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminEmail.trim().toLowerCase(), password: adminPassword })
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        if (data.user?.role !== 'admin') {
+          setAdminAuthError('Access Denied: This account does not have Super Admin privileges.');
+          return;
+        }
+        localStorage.setItem('apextrade_admin_token', data.token);
+        localStorage.setItem('apextrade_admin_user', JSON.stringify(data.user));
+        login(data.token, data.user);
+        setAuthRequired(false);
+        setAdminPassword('');
+        fetchAllData(data.token);
+      } else {
+        setAdminAuthError(data.message || 'Invalid administrator password.');
+      }
+    } catch (err) {
+      setAdminAuthError('Authentication server error. Please try again.');
+    } finally {
+      setAdminAuthLoading(false);
+    }
   };
 
   useEffect(() => {
     const admTok = getAdminToken();
     if (admTok) {
-      fetchAllData();
+      fetchAllData(admTok);
+    } else {
+      setAuthRequired(true);
     }
   }, [token, user]);
+
+  // Sound chime detection on new pending requests
+  useEffect(() => {
+    const curDep = deposits.filter(d => d.status === 'PENDING').length;
+    const curWith = withdrawals.filter(w => w.status === 'PENDING').length;
+    const curSupp = supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+
+    if (prevCountsRef.current.initialized) {
+      if (
+        curDep > prevCountsRef.current.deposits ||
+        curWith > prevCountsRef.current.withdrawals ||
+        curSupp > prevCountsRef.current.support
+      ) {
+        playNotificationSound();
+      }
+    } else {
+      prevCountsRef.current.initialized = true;
+    }
+
+    prevCountsRef.current = {
+      deposits: curDep,
+      withdrawals: curWith,
+      support: curSupp,
+      initialized: true
+    };
+  }, [deposits, withdrawals, supportConversations, soundEnabled]);
 
   // Periodic Polling for Live Chat, Stats, Deposits, & Withdrawals
   useEffect(() => {
     const interval = setInterval(() => {
       const admTok = getAdminToken();
-      if (admTok) {
-        fetchSupportConversations();
-        fetchStats();
-        fetchDeposits();
-        fetchWithdrawals();
-        fetchKyc();
+      if (admTok && !authRequired) {
+        fetchSupportConversations(admTok);
+        fetchStats(admTok);
+        fetchDeposits(admTok);
+        fetchWithdrawals(admTok);
+        fetchKyc(admTok);
         if (activeChatUserId && tab === 'support') {
-          fetchConversationMessages(activeChatUserId);
+          fetchConversationMessages(activeChatUserId, admTok);
         }
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [activeChatUserId, tab]);
+  }, [activeChatUserId, tab, authRequired]);
 
-  const fetchAllData = () => {
-    fetchStats();
-    fetchUsers();
-    fetchSignals();
-    fetchTrades();
-    fetchDeposits();
-    fetchWithdrawals();
-    fetchWallets();
-    fetchPackages();
-    fetchAnnouncements();
-    fetchKyc();
-    fetchSettings();
-    fetchSupportConversations();
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (activeChatUserId && tab === 'support') {
+      adminChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeChatMessages, activeChatUserId, tab]);
+
+  const fetchAllData = (overrideToken) => {
+    const tok = overrideToken || getAdminToken();
+    if (!tok) {
+      setAuthRequired(true);
+      return;
+    }
+    fetchStats(tok);
+    fetchUsers(tok);
+    fetchSignals(tok);
+    fetchTrades(tok);
+    fetchDeposits(tok);
+    fetchWithdrawals(tok);
+    fetchWallets(tok);
+    fetchPackages(tok);
+    fetchAnnouncements(tok);
+    fetchKyc(tok);
+    fetchSettings(tok);
+    fetchSupportConversations(tok);
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        return;
+      }
       const data = await res.json();
-      if (data.success) setStats(data.data || {});
+      if (data.success) {
+        setStats(data.data || {});
+        setAuthRequired(false);
+      }
     } catch (e) { console.error(e); }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        return;
+      }
       const data = await res.json();
-      if (data.success) setUsers(data.data || []);
+      if (data.success) {
+        setUsers(data.data || []);
+        setAuthRequired(false);
+      }
     } catch (e) { console.error(e); }
   };
 
-  const fetchSignals = async () => {
+  const fetchSignals = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/signals/admin/list`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setSignals(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchTrades = async () => {
+  const fetchTrades = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/trades`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setTrades(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchDeposits = async () => {
+  const fetchDeposits = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/deposits`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        return;
+      }
       const data = await res.json();
-      if (data.success) setDeposits(data.data || []);
+      if (data.success) {
+        setDeposits(data.data || []);
+        setAuthRequired(false);
+      }
     } catch (e) { console.error(e); }
   };
 
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/withdrawals`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setWithdrawals(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchWallets = async () => {
+  const fetchWallets = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/wallets`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setWallets(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchPackages = async () => {
+  const fetchPackages = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/packages`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setPackages(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/announcements`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setAnnouncements(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchKyc = async () => {
+  const fetchKyc = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/kyc`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setKycUsers(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (overrideTok) => {
     try {
-      const admTok = getAdminToken();
+      const admTok = overrideTok || getAdminToken();
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success && data.data) {
         setSettings(data.data);
@@ -300,6 +457,44 @@ export default function AdminDashboardPage() {
           ...prev,
           ...data.data
         }));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchSupportConversations = async (overrideTok) => {
+    try {
+      const admTok = overrideTok || getAdminToken();
+      if (!admTok) {
+        setAuthRequired(true);
+        return;
+      }
+      const res = await fetch(`${API_BASE}/api/support/admin/conversations`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) {
+        setAuthRequired(true);
+        return;
+      }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setSupportConversations(data.data);
+        setAuthRequired(false);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchConversationMessages = async (userId, overrideTok) => {
+    try {
+      setActiveChatUserId(userId);
+      const admTok = overrideTok || getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/support/admin/conversation/${userId}`, {
+        headers: { Authorization: `Bearer ${admTok}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const msgList = Array.isArray(data.data.messages) 
+          ? data.data.messages 
+          : (Array.isArray(data.data) ? data.data : []);
+        setActiveChatMessages(msgList);
       }
     } catch (e) { console.error(e); }
   };
@@ -399,36 +594,6 @@ export default function AdminDashboardPage() {
     } finally {
       setSettingsSaving(false);
     }
-  };
-
-  const fetchSupportConversations = async () => {
-    try {
-      const admTok = getAdminToken();
-      if (!admTok) return;
-      const res = await fetch(`${API_BASE}/api/support/admin/conversations`, { headers: { Authorization: `Bearer ${admTok}` } });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setSupportConversations(data.data);
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const fetchConversationMessages = async (userId) => {
-    try {
-      setActiveChatUserId(userId);
-      const admTok = getAdminToken();
-      if (!admTok) return;
-      const res = await fetch(`${API_BASE}/api/support/admin/conversation/${userId}`, {
-        headers: { Authorization: `Bearer ${admTok}` }
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        const msgList = Array.isArray(data.data.messages) 
-          ? data.data.messages 
-          : (Array.isArray(data.data) ? data.data : []);
-        setActiveChatMessages(msgList);
-      }
-    } catch (e) { console.error(e); }
   };
 
   // Actions
@@ -603,27 +768,48 @@ export default function AdminDashboardPage() {
   };
 
   const handleAdminSendMessage = async (e) => {
-    e.preventDefault();
-    if (!activeChatUserId || !adminChatInput.trim() || adminSending) return;
+    e?.preventDefault();
+    if (!activeChatUserId || (!adminChatInput.trim() && !adminChatImage) || adminSending) return;
 
     try {
       setAdminSending(true);
       const text = adminChatInput.trim();
+      const imgFile = adminChatImage;
       setAdminChatInput('');
+      setAdminChatImage(null);
+      setAdminChatImagePreview(null);
+      if (adminFileInputRef.current) adminFileInputRef.current.value = '';
 
-      const res = await fetch(`${API_BASE}/api/support/admin/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
-        body: JSON.stringify({ userId: activeChatUserId, message: text })
-      });
+      let res;
+      if (imgFile) {
+        const formData = new FormData();
+        formData.append('userId', activeChatUserId);
+        if (text) formData.append('message', text);
+        formData.append('image', imgFile);
+
+        res = await fetch(`${API_BASE}/api/support/admin/send`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getAdminToken()}` },
+          body: formData
+        });
+      } else {
+        res = await fetch(`${API_BASE}/api/support/admin/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+          body: JSON.stringify({ userId: activeChatUserId, message: text })
+        });
+      }
 
       const data = await res.json();
       if (data.success && data.data) {
-        setActiveChatMessages(prev => [...prev, data.data]);
+        setActiveChatMessages(prev => {
+          if (prev.some(m => (m._id || m.id) === (data.data._id || data.data.id))) return prev;
+          return [...prev, data.data];
+        });
         fetchSupportConversations();
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error sending admin reply:', e);
     } finally {
       setAdminSending(false);
     }
@@ -664,18 +850,22 @@ export default function AdminDashboardPage() {
     u.referral_code?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const pendingDepositsCount = deposits.filter(d => d.status === 'PENDING').length;
+  const pendingWithdrawalsCount = withdrawals.filter(w => w.status === 'PENDING').length;
+  const totalUnreadSupportCount = supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+
   const navItems = [
     { id: 'overview', label: 'Master Overview', icon: BarChart2 },
-    { id: 'users', label: 'User Directory & Balances', icon: Users },
-    { id: 'signals', label: 'Daily Signals Hub', icon: Radio },
+    { id: 'users', label: 'User Directory & Balances', icon: Users, badge: users.length > 0 ? `${users.length} Users` : null, badgeColor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
+    { id: 'signals', label: 'Daily Signals Hub', icon: Radio, badge: signals.filter(s => s.status === 'ACTIVE').length > 0 ? `${signals.filter(s => s.status === 'ACTIVE').length} Active` : null, badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
     { id: 'trades', label: 'Option Trades', icon: TrendingUp },
-    { id: 'deposits', label: 'Crypto Deposits', icon: ArrowDownLeft, badge: deposits.filter(d => d.status === 'PENDING').length },
-    { id: 'withdrawals', label: 'Crypto Withdrawals', icon: ArrowUpRight, badge: withdrawals.filter(w => w.status === 'PENDING').length },
+    { id: 'deposits', label: 'Crypto Deposits', icon: ArrowDownLeft, badge: pendingDepositsCount > 0 ? `${pendingDepositsCount} PENDING` : null, badgeColor: 'bg-emerald-500 text-white animate-pulse' },
+    { id: 'withdrawals', label: 'Crypto Withdrawals', icon: ArrowUpRight, badge: pendingWithdrawalsCount > 0 ? `${pendingWithdrawalsCount} PENDING` : null, badgeColor: 'bg-rose-500 text-white animate-pulse' },
     { id: 'wallets', label: 'Depository Wallets', icon: Wallet },
     { id: 'packages', label: 'Yield Staking Plans', icon: Layers },
     { id: 'announcements', label: 'System News & Alerts', icon: Bell },
-    { id: 'kyc', label: 'KYC Document Verification', icon: UserCheck, badge: kycUsers.length },
-    { id: 'support', label: 'Live Chat Center', icon: Headphones, badge: supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0) },
+    { id: 'kyc', label: 'KYC Document Verification', icon: UserCheck, badge: kycUsers.length > 0 ? `${kycUsers.length} Submissions` : null, badgeColor: 'bg-blue-500/20 text-blue-300' },
+    { id: 'support', label: 'Live Chat Center', icon: Headphones, badge: totalUnreadSupportCount > 0 ? `${totalUnreadSupportCount} NEW` : null, badgeColor: 'bg-amber-500 text-white animate-pulse shadow-md shadow-amber-500/20' },
     { id: 'settings', label: 'Platform Controls', icon: Settings },
   ];
 
@@ -728,8 +918,8 @@ export default function AdminDashboardPage() {
                     <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                     <span>{item.label}</span>
                   </div>
-                  {item.badge > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  {item.badge && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor || 'bg-rose-500 text-white'}`}>
                       {item.badge}
                     </span>
                   )}
@@ -783,42 +973,94 @@ export default function AdminDashboardPage() {
       <main className="flex-1 flex flex-col min-w-0 bg-slate-950 min-h-screen">
         
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          {/* Left: Mobile Menu & Tab Title */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl bg-slate-800 text-slate-300"
+              className="md:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0 cursor-pointer"
+              aria-label="Open Admin Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-base sm:text-lg font-black text-white tracking-tight capitalize">
-              {navItems.find(i => i.id === tab)?.label || 'Master Console'}
-            </h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 hidden sm:inline-block"></span>
+              <h1 className="text-sm sm:text-base font-black text-white tracking-tight truncate capitalize">
+                {navItems.find(i => i.id === tab)?.label || 'Master Console'}
+              </h1>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <a
-              href="/downloads/ApexTrade_Admin.apk"
-              download="ApexTrade_Admin.apk"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-md shadow-red-600/20 transition-all cursor-pointer"
-              title="Download Master Admin Android App"
-            >
-              <Download className="w-3.5 h-3.5 text-white" />
-              <span className="hidden sm:inline">Download Admin APK</span>
-              <span className="sm:hidden">Admin App</span>
-            </a>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Notification Bell with Badge */}
             <button
-              onClick={fetchAllData}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-              title="Refresh Data"
+              onClick={() => {
+                if (pendingDepositsCount > 0) setTab('deposits');
+                else if (totalUnreadSupportCount > 0) setTab('support');
+                else if (pendingWithdrawalsCount > 0) setTab('withdrawals');
+                else setTab('overview');
+              }}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer relative ${
+                (pendingDepositsCount + pendingWithdrawalsCount + totalUnreadSupportCount) > 0
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400 hover:bg-amber-500/25'
+                  : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'
+              }`}
+              title={`Pending Alerts: ${pendingDepositsCount} Deposits, ${totalUnreadSupportCount} Chats, ${pendingWithdrawalsCount} Withdrawals`}
+            >
+              <Bell className="w-4 h-4" />
+              {(pendingDepositsCount + pendingWithdrawalsCount + totalUnreadSupportCount) > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center animate-pulse shadow-sm">
+                  {(pendingDepositsCount + pendingWithdrawalsCount + totalUnreadSupportCount)}
+                </span>
+              )}
+            </button>
+
+            {/* Sound Notification Toggle */}
+            <button
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                if (next) playNotificationSound();
+              }}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                soundEnabled
+                  ? 'bg-slate-800/80 border-slate-700 text-blue-400 hover:bg-slate-700'
+                  : 'bg-slate-800/40 border-slate-800 text-slate-500 hover:text-slate-400'
+              }`}
+              title={soundEnabled ? 'Alert Sound Active (Click to Mute)' : 'Alert Sound Muted (Click to Unmute)'}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Quick Refresh */}
+            <button
+              onClick={() => fetchAllData()}
+              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
+              title="Refresh Admin Data"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+
+            {/* Admin APK Download */}
+            <a
+              href="/downloads/ApexTrade_Admin.apk"
+              download="ApexTrade_Admin.apk"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-sm transition-all cursor-pointer shrink-0"
+              title="Download Master Admin Android App"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Admin APK</span>
+            </a>
+
+            {/* Trader View Link */}
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs transition-all cursor-pointer shadow-xs shrink-0"
+              title="Open Trader Front-End Dashboard"
             >
-              Trader View →
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Trader View</span>
             </button>
           </div>
         </header>
@@ -1447,92 +1689,334 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* TAB 7: LIVE SUPPORT CENTER */}
+          {/* TAB 7: LIVE SUPPORT CENTER (WHATSAPP-STYLE RESPONSIVE UI) */}
           {tab === 'support' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 h-[680px]">
-              {/* Left Column: Conversations List */}
-              <div className="lg:col-span-4 border-r border-slate-800 flex flex-col">
-                <div className="p-4 border-b border-slate-800">
-                  <h3 className="font-extrabold text-white text-sm">Active Support Tickets</h3>
-                  <p className="text-xs text-slate-400">Realtime direct client inquiries</p>
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col lg:flex-row h-[72vh] min-h-[580px] max-h-[780px] shadow-2xl">
+              
+              {/* LEFT COLUMN: CONVERSATION LIST & TRADER SEARCH (Hidden on mobile when in chat) */}
+              <div className={`${activeChatUserId ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-96 lg:border-r border-slate-800 bg-slate-900 shrink-0 h-full`}>
+                
+                {/* Search & Header Bar */}
+                <div className="p-3.5 sm:p-4 border-b border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-extrabold text-white text-sm flex items-center gap-2">
+                        <Headphones className="w-4 h-4 text-blue-400" />
+                        <span>Support Chats</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400">Direct realtime client messaging</p>
+                    </div>
+                    {totalUnreadSupportCount > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse">
+                        {totalUnreadSupportCount} New
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Search Bar for Conversations & Registered Users */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search chat or user (name/email)..."
+                      value={chatSearch}
+                      onChange={(e) => setChatSearch(e.target.value)}
+                      className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {chatSearch && (
+                      <button
+                        onClick={() => setChatSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60">
-                  {supportConversations.map((c) => (
-                    <div
-                      key={c.user_id}
-                      onClick={() => fetchConversationMessages(c.user_id)}
-                      className={`p-4 cursor-pointer transition-colors ${
-                        activeChatUserId === c.user_id ? 'bg-blue-600/20 border-l-4 border-blue-500' : 'hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-extrabold text-white text-xs">{c.user_name}</h4>
-                        {c.unread_count > 0 && (
-                          <span className="px-2 py-0.2 rounded-full bg-blue-500 text-white text-[10px] font-black">
-                            {c.unread_count} New
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-1">{c.last_message}</p>
+                {/* Conversation List / Search Results */}
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 select-none">
+                  {/* Filtered Active Conversations */}
+                  {supportConversations
+                    .filter(c => 
+                      !chatSearch.trim() ||
+                      c.user_name?.toLowerCase().includes(chatSearch.toLowerCase()) ||
+                      c.user_email?.toLowerCase().includes(chatSearch.toLowerCase()) ||
+                      c.last_message?.toLowerCase().includes(chatSearch.toLowerCase())
+                    )
+                    .map((c) => {
+                      const isActive = activeChatUserId === c.user_id;
+                      return (
+                        <div
+                          key={c.user_id}
+                          onClick={() => fetchConversationMessages(c.user_id)}
+                          className={`p-3.5 sm:p-4 cursor-pointer transition-all flex items-center gap-3 ${
+                            isActive
+                              ? 'bg-blue-600/20 border-l-4 border-blue-500'
+                              : 'hover:bg-slate-800/50'
+                          }`}
+                        >
+                          {/* User Avatar */}
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-blue-500/20">
+                              {c.user_name ? c.user_name[0].toUpperCase() : 'U'}
+                            </div>
+                            {c.unread_count > 0 && (
+                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
+                            )}
+                          </div>
+
+                          {/* Message Snippet & Meta */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-baseline gap-1">
+                              <h4 className="font-bold text-white text-xs truncate">{c.user_name}</h4>
+                              <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                                {c.last_activity ? new Date(c.last_activity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                              <p className="text-[11px] text-slate-400 truncate pr-2">{c.last_message || 'No messages yet'}</p>
+                              {c.unread_count > 0 && (
+                                <span className="px-1.5 py-0.2 rounded-full bg-blue-500 text-white text-[9px] font-black shrink-0">
+                                  {c.unread_count}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                  {/* If Searching: Show Registered Traders who don't have conversation yet */}
+                  {chatSearch.trim() && (
+                    <div className="p-2 space-y-1">
+                      <p className="text-[10px] font-black uppercase text-slate-500 px-3 py-1">
+                        Other Registered Traders
+                      </p>
+                      {users
+                        .filter(u => 
+                          (u.name?.toLowerCase().includes(chatSearch.toLowerCase()) || 
+                           u.email?.toLowerCase().includes(chatSearch.toLowerCase())) &&
+                          !supportConversations.some(c => c.user_id === (u._id || u.id))
+                        )
+                        .map(u => (
+                          <div
+                            key={u._id || u.id}
+                            onClick={() => {
+                              setActiveChatUserId(u._id || u.id);
+                              fetchConversationMessages(u._id || u.id);
+                            }}
+                            className="p-3 rounded-2xl hover:bg-slate-800/60 transition-colors cursor-pointer flex items-center justify-between gap-3 border border-transparent hover:border-slate-700"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-xl bg-slate-800 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                {u.name ? u.name[0].toUpperCase() : 'U'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-white truncate">{u.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono truncate">{u.email}</p>
+                              </div>
+                            </div>
+                            <span className="px-2 py-1 rounded-xl bg-blue-600/20 text-blue-400 text-[10px] font-bold shrink-0 flex items-center gap-1">
+                              <MessageSquarePlus className="w-3 h-3" />
+                              <span>Chat</span>
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Empty Search / Empty Conversations */}
+                  {supportConversations.length === 0 && !chatSearch.trim() && (
+                    <div className="p-8 text-center text-slate-500 space-y-2">
+                      <Headphones className="w-8 h-8 mx-auto text-slate-600" />
+                      <p className="text-xs font-bold">No support messages yet.</p>
+                      <p className="text-[11px] text-slate-600">Search any user above to initiate a direct message.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Right Column: Chat Room */}
-              <div className="lg:col-span-8 flex flex-col justify-between bg-slate-950/40">
+              {/* RIGHT COLUMN: CHAT ROOM (Full Screen on mobile when conversation selected) */}
+              <div className={`${activeChatUserId ? 'flex' : 'hidden lg:flex'} flex-col flex-1 bg-slate-950/60 h-full`}>
                 {activeChatUserId ? (
                   <>
-                    <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                      <h4 className="font-extrabold text-white text-xs">
-                        Chatting with: {supportConversations.find(c => c.user_id === activeChatUserId)?.user_name || 'Client'}
-                      </h4>
+                    {/* Chat Room Top Bar (WhatsApp Style) */}
+                    <div className="p-3 sm:p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Mobile Back to List Button */}
+                        <button
+                          onClick={() => setActiveChatUserId(null)}
+                          className="lg:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
+                          title="Back to Chats List"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Active Trader Identity */}
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                          {supportConversations.find(c => c.user_id === activeChatUserId)?.user_name?.[0]?.toUpperCase() ||
+                           users.find(u => (u._id || u.id) === activeChatUserId)?.name?.[0]?.toUpperCase() || 'T'}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-extrabold text-white text-xs sm:text-sm truncate">
+                              {supportConversations.find(c => c.user_id === activeChatUserId)?.user_name ||
+                               users.find(u => (u._id || u.id) === activeChatUserId)?.name || 'Trader Client'}
+                            </h4>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-mono truncate">
+                            {supportConversations.find(c => c.user_id === activeChatUserId)?.user_email ||
+                             users.find(u => (u._id || u.id) === activeChatUserId)?.email || 'Live Channel'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions (Profile & Close Chat) */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Quick Inspect Profile Button */}
+                        <button
+                          onClick={() => {
+                            const targetUser = users.find(u => (u._id || u.id) === activeChatUserId);
+                            if (targetUser) setInspectedUser(targetUser);
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          title="View Full Trader Profile"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="hidden sm:inline">Profile</span>
+                        </button>
+
+                        {/* Close / Exit Conversation Button */}
+                        <button
+                          onClick={() => setActiveChatUserId(null)}
+                          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          title="Close Conversation View"
+                        >
+                          <X className="w-4 h-4" />
+                          <span className="hidden sm:inline">Close</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {activeChatMessages.map((m) => {
-                        const isAdmin = m.sender_role === 'admin';
-                        return (
-                          <div key={m._id || m.id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
-                            <div className={`max-w-[75%] p-3 rounded-2xl text-xs ${
-                              isAdmin ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-100'
-                            }`}>
-                              {m.image_url && (
-                                <img src={m.image_url} alt="Attachment" className="mb-2 rounded-xl max-h-48 object-cover" />
-                              )}
-                              <p>{m.message}</p>
+                    {/* Messages Body */}
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 bg-slate-950/40">
+                      {activeChatMessages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2">
+                          <MessageSquarePlus className="w-8 h-8 text-slate-600" />
+                          <p className="text-xs font-bold">No messages in this ticket yet.</p>
+                          <p className="text-[11px] text-slate-600">Type a message below to start conversation.</p>
+                        </div>
+                      ) : (
+                        activeChatMessages.map((m) => {
+                          const isAdmin = m.sender_role === 'admin';
+                          return (
+                            <div key={m._id || m.id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'} space-y-0.5`}>
+                              <div className={`max-w-[85%] sm:max-w-[70%] p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                                isAdmin
+                                  ? 'bg-blue-600 text-white rounded-tr-xs'
+                                  : 'bg-slate-800 text-slate-100 rounded-tl-xs border border-slate-700/60'
+                              }`}>
+                                {m.image_url && (
+                                  <div className="mb-2 rounded-xl overflow-hidden cursor-pointer" onClick={() => setReceiptModalUrl(m.image_url)}>
+                                    <img src={m.image_url} alt="Attachment" className="max-h-60 rounded-xl object-cover hover:opacity-90 transition-opacity" />
+                                  </div>
+                                )}
+                                <p className="break-words whitespace-pre-wrap">{m.message}</p>
+                              </div>
+                              <div className="flex items-center gap-1 px-1">
+                                <span className="text-[9px] text-slate-500 font-mono">
+                                  {new Date(m.created_at || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {isAdmin && (
+                                  <Check className="w-3 h-3 text-blue-400" />
+                                )}
+                              </div>
                             </div>
-                            <span className="text-[9px] text-slate-500 mt-0.5">
-                              {new Date(m.created_at || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                       <div ref={adminChatEndRef} />
                     </div>
 
-                    <form onSubmit={handleAdminSendMessage} className="p-3 border-t border-slate-800 flex gap-2">
+                    {/* Image Attachment Preview Bar */}
+                    {adminChatImagePreview && (
+                      <div className="px-4 py-2 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <img src={adminChatImagePreview} alt="Preview" className="w-10 h-10 object-cover rounded-xl border border-slate-700" />
+                          <span className="text-xs text-slate-300 font-bold">Image attached</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdminChatImage(null);
+                            setAdminChatImagePreview(null);
+                            if (adminFileInputRef.current) adminFileInputRef.current.value = '';
+                          }}
+                          className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Bottom Chat Input Bar */}
+                    <form onSubmit={handleAdminSendMessage} className="p-2.5 sm:p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
                       <input
-                        type="text"
-                        placeholder="Reply to client as Master Admin..."
-                        value={adminChatInput}
-                        onChange={(e) => setAdminChatInput(e.target.value)}
-                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                        type="file"
+                        ref={adminFileInputRef}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setAdminChatImage(file);
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setAdminChatImagePreview(ev.target.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
                       />
                       <button
-                        type="submit"
-                        disabled={adminSending || !adminChatInput.trim()}
-                        className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs cursor-pointer disabled:opacity-50"
+                        type="button"
+                        onClick={() => adminFileInputRef.current?.click()}
+                        className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                        title="Attach screenshot or receipt image"
                       >
-                        Send
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="text"
+                        placeholder="Reply to trader as Master Admin..."
+                        value={adminChatInput}
+                        onChange={(e) => setAdminChatInput(e.target.value)}
+                        className="flex-1 bg-slate-800/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={adminSending || (!adminChatInput.trim() && !adminChatImage)}
+                        className="p-2.5 sm:px-5 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        <Send className="w-4 h-4" />
+                        <span className="hidden sm:inline">{adminSending ? 'Sending...' : 'Send'}</span>
                       </button>
                     </form>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                    <Headphones className="w-10 h-10 mb-2" />
-                    <p className="text-xs font-bold">Select a user conversation from the left to start live support.</p>
+                  <div className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-500 space-y-3">
+                    <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-blue-500 shadow-xl">
+                      <Headphones className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1 max-w-sm">
+                      <h3 className="font-extrabold text-white text-base">Select a Trader Conversation</h3>
+                      <p className="text-xs text-slate-400">
+                        Choose an active support inquiry from the left or search any registered user by email/name to start chatting.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2308,6 +2792,66 @@ export default function AdminDashboardPage() {
                   {editSignalLoading ? 'Saving Signal...' : 'Save Signal Changes'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SUPER ADMIN MASTER AUTH REQUIRED MODAL */}
+      {authRequired && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 text-white text-center">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <ShieldCheck className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <span className="px-3 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black tracking-wider uppercase">
+                SUPER ADMIN AUTHENTICATION REQUIRED
+              </span>
+              <h2 className="text-xl font-black mt-2">Unlock Master Admin Panel</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Enter your Master Administrator credentials to view live deposits, chat inquiries, and users.
+              </p>
+            </div>
+
+            {adminAuthError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold">
+                {adminAuthError}
+              </div>
+            )}
+
+            <form onSubmit={handleMasterLogin} className="space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Master Admin Email</label>
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Master Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter administrator password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={adminAuthLoading}
+                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{adminAuthLoading ? 'Authenticating...' : 'Unlock Super Admin Panel'}</span>
+              </button>
             </form>
           </div>
         </div>

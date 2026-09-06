@@ -52,6 +52,8 @@ export default function LoginPage() {
       if (data.success && data.token) {
         login(data.token, data.user);
         if (data.user?.role === 'admin') {
+          localStorage.setItem('apextrade_admin_token', data.token);
+          localStorage.setItem('apextrade_admin_user', JSON.stringify(data.user));
           router.push('/admin');
         } else {
           router.push('/dashboard');

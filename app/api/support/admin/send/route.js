@@ -12,30 +12,41 @@ export async function POST(request) {
   if (errorResponse) return errorResponse;
 
   try {
-    const formData = await request.formData();
-    const userId = formData.get('userId');
-    const message = formData.get('message') || '';
-    const file = formData.get('image');
+    let userId = '';
+    let message = '';
+    let imageUrl = '';
+
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      userId = body.userId || '';
+      message = body.message || '';
+      imageUrl = body.imageUrl || '';
+    } else {
+      const formData = await request.formData();
+      userId = formData.get('userId') || '';
+      message = formData.get('message') || '';
+      const file = formData.get('image');
+
+      if (file && typeof file === 'object' && file.name) {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const ext = path.extname(file.name) || '.jpg';
+        const filename = `chat-${Date.now()}-${uuidv4().substring(0, 8)}${ext}`;
+
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const filePath = path.join(uploadDir, filename);
+        fs.writeFileSync(filePath, buffer);
+        imageUrl = `/uploads/${filename}`;
+      }
+    }
 
     if (!userId) {
       return NextResponse.json({ success: false, message: 'Recipient User ID is required.' }, { status: 400 });
-    }
-
-    let imageUrl = '';
-    if (file && typeof file === 'object' && file.name) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const ext = path.extname(file.name) || '.jpg';
-      const filename = `chat-${Date.now()}-${uuidv4().substring(0, 8)}${ext}`;
-
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const filePath = path.join(uploadDir, filename);
-      fs.writeFileSync(filePath, buffer);
-      imageUrl = `/uploads/${filename}`;
     }
 
     if (!message.trim() && !imageUrl) {

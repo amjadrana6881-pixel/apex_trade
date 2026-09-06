@@ -94,11 +94,17 @@ export default function WalletPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        setTransactions(data.data || []);
+      if (data.success && data.data) {
+        const list = Array.isArray(data.data) 
+          ? data.data 
+          : (Array.isArray(data.data.transactions) ? data.data.transactions : []);
+        setTransactions(list);
+      } else {
+        setTransactions([]);
       }
     } catch (err) {
       console.error('Failed to load transactions:', err);
+      setTransactions([]);
     } finally {
       setTxLoading(false);
     }
@@ -653,13 +659,13 @@ export default function WalletPage() {
               <span>Wallet Transactions Ledger</span>
             </h2>
             <span className="text-xs text-slate-400 font-medium">
-              Total Records: {transactions.length}
+              Total Records: {Array.isArray(transactions) ? transactions.length : 0}
             </span>
           </div>
 
           {txLoading ? (
             <div className="text-center py-8 text-slate-400">Loading ledger records...</div>
-          ) : transactions.length === 0 ? (
+          ) : (!Array.isArray(transactions) || transactions.length === 0) ? (
             <div className="text-center py-10 text-slate-400">
               <WalletIcon className="w-8 h-8 mx-auto mb-2 text-slate-300" />
               <p className="text-xs font-semibold">No wallet transaction records yet.</p>
@@ -677,7 +683,7 @@ export default function WalletPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {transactions.map((tx) => {
+                  {(Array.isArray(transactions) ? transactions : []).map((tx) => {
                     const isCredit = Number(tx.amount) > 0;
                     return (
                       <tr key={tx._id || tx.id} className="hover:bg-slate-50 transition-colors">
