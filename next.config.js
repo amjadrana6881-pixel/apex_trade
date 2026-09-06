@@ -10,6 +10,18 @@ const nextConfig = {
     unoptimized: true,
   },
   serverExternalPackages: ['mongoose', 'mongodb', 'bcryptjs'],
+  async headers() {
+    return [
+      {
+        source: '/downloads/:path*',
+        headers: [
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+          { key: 'Content-Disposition', value: 'attachment' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -554,7 +554,7 @@ export default function ProfilePage() {
             </div>
 
             <a
-              href="/downloads/ApexTrade_User.apk"
+              href="/api/download/apk?type=user"
               download="ApexTrade_User.apk"
               className="w-full py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
             >

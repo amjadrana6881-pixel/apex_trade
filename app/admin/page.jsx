@@ -938,7 +938,7 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-[10px] text-slate-400">Lock-screen alerts for all deposits, withdrawals & support chat.</p>
             <a
-              href="/downloads/ApexTrade_Admin.apk"
+              href="/api/download/apk?type=admin"
               download="ApexTrade_Admin.apk"
               className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
@@ -1044,7 +1044,7 @@ export default function AdminDashboardPage() {
 
             {/* Admin APK Download */}
             <a
-              href="/downloads/ApexTrade_Admin.apk"
+              href="/api/download/apk?type=admin"
               download="ApexTrade_Admin.apk"
               className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-sm transition-all cursor-pointer shrink-0"
               title="Download Master Admin Android App"

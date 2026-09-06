@@ -124,7 +124,7 @@ export default function Header() {
 
           {/* Download App Button */}
           <a
-            href="/downloads/ApexTrade_User.apk"
+            href="/api/download/apk?type=user"
             download="ApexTrade_User.apk"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs border border-blue-200 transition-all cursor-pointer shadow-2xs"
             title="Download ApexTrade PRO Android APK"
@@ -247,7 +247,7 @@ export default function Header() {
 
             <div className="pt-2 border-t border-slate-100">
               <a
-                href="/downloads/ApexTrade_User.apk"
+                href="/api/download/apk?type=user"
                 download="ApexTrade_User.apk"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs shadow-md shadow-blue-500/20"
               >

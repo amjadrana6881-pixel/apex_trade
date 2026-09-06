@@ -295,7 +295,7 @@ export default function Dashboard() {
           </div>
 
           <a
-            href="/downloads/ApexTrade_User.apk"
+            href="/api/download/apk?type=user"
             download="ApexTrade_User.apk"
             className="w-full py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
