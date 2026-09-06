@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Wallet as WalletIcon, 
   ArrowDownLeft, 
@@ -23,6 +24,7 @@ import {
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function WalletPage() {
+  const router = useRouter();
   const { user, token, fetchProfile } = useAuth();
   
   const [tab, setTab] = useState('deposit'); // 'deposit', 'withdraw', 'history'
@@ -119,6 +121,10 @@ export default function WalletPage() {
   // Submit Crypto Deposit Request
   const handleDepositSubmit = async (e) => {
     e.preventDefault();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     if (!selectedWallet) return;
     const amt = Number(depositAmount);
     if (!amt || amt <= 0) {
@@ -169,6 +175,10 @@ export default function WalletPage() {
   // Submit USDT Withdrawal Request (With Dedicated Password)
   const handleWithdrawSubmit = async (e) => {
     e.preventDefault();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     const amt = Number(withdrawAmount);
     if (!amt || amt <= 0) {
       setWithdrawMsg('❌ Please enter a valid withdrawal amount.');

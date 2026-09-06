@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Layers, 
   TrendingUp, 
@@ -15,6 +16,7 @@ import {
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function InvestmentsPage() {
+  const router = useRouter();
   const { user, token, fetchProfile } = useAuth();
 
   const [packages, setPackages] = useState([]);
@@ -61,7 +63,10 @@ export default function InvestmentsPage() {
 
   const handleInvest = async (e) => {
     e.preventDefault();
-    if (!token) return alert('Please login first');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     if (!selectedPkg) return;
 
     if (investAmount < selectedPkg.min_amount || investAmount > selectedPkg.max_amount) {

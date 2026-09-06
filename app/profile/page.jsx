@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   User, 
   ShieldCheck, 
@@ -23,7 +24,15 @@ import {
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function ProfilePage() {
-  const { user, token, fetchProfile } = useAuth();
+  const router = useRouter();
+  const { user, token, loading, fetchProfile } = useAuth();
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!loading && !token) {
+      router.push('/login');
+    }
+  }, [loading, token, router]);
 
   // Profile Edit
   const [name, setName] = useState(user?.name || '');

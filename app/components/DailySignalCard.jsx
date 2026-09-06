@@ -77,7 +77,13 @@ export default function DailySignalCard({ signal }) {
 
           <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-[190px]">
             <button
-              onClick={() => setConfirmModalOpen(true)}
+              onClick={() => {
+                if (!token) {
+                  router.push('/login');
+                  return;
+                }
+                setConfirmModalOpen(true);
+              }}
               className="w-full py-3.5 sm:py-4 px-5 rounded-2xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer group"
             >
               <Zap className="w-4 h-4 text-blue-600 fill-blue-600 group-hover:scale-110 transition-transform" />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Send, 
   Headphones, 
@@ -22,6 +23,7 @@ import {
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function ContactPage() {
+  const router = useRouter();
   const { user, token } = useAuth();
 
   const [messages, setMessages] = useState([]);
@@ -97,6 +99,10 @@ export default function ContactPage() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     if ((!inputText.trim() && !selectedImage) || sending) return;
 
     const messageText = inputText.trim();

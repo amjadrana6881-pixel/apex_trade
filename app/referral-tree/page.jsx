@@ -1,15 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Network, Users, Copy, Check, Gift } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function ReferralTreePage() {
-  const { user, token } = useAuth();
+  const router = useRouter();
+  const { user, token, loading } = useAuth();
   const [data, setData] = useState(null);
   const [copied, setCopied] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [origin, setOrigin] = useState('');
+
+  useEffect(() => {
+    if (!loading && !token) {
+      router.push('/login');
+    }
+  }, [loading, token, router]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
