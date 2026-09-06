@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import SupportMessage from '@/models/SupportMessage';
+import { sendPushToUser } from '@/lib/fcm';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -51,6 +52,17 @@ export async function POST(request) {
       image_url: imageUrl,
       is_seen: false
     });
+
+    // Notify user via FCM Lock-screen Push
+    try {
+      sendPushToUser(userId, {
+        title: '🎧 Live Support Reply',
+        body: message.trim() || 'Admin sent you an image attachment.',
+        data: {
+          type: 'SUPPORT_CHAT'
+        }
+      }).catch(e => console.error('User push error:', e));
+    } catch (pushErr) {}
 
     return NextResponse.json({
       success: true,

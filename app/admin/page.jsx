@@ -38,7 +38,10 @@ import {
   Menu,
   LogOut,
   ChevronRight,
-  Zap
+  Zap,
+  Smartphone,
+  Download,
+  Save
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
@@ -57,13 +60,17 @@ export default function AdminDashboardPage() {
   const [userSearch, setUserSearch] = useState('');
   const [inspectedUser, setInspectedUser] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [editUserLoading, setEditUserLoading] = useState(false);
+  const [editUserMessage, setEditUserMessage] = useState('');
   const [balanceModalUser, setBalanceModalUser] = useState(null);
   const [balanceAdjustment, setBalanceAdjustment] = useState('');
   const [balanceActionType, setBalanceActionType] = useState('ADD'); // 'ADD' or 'SUBTRACT'
   const [balanceReason, setBalanceReason] = useState('');
 
-  // Daily Signals
+  // Daily Signals & Signal Editor
   const [signals, setSignals] = useState([]);
+  const [editingSignal, setEditingSignal] = useState(null);
+  const [editSignalLoading, setEditSignalLoading] = useState(false);
   const [newSignal, setNewSignal] = useState({
     title: `${new Date().toLocaleDateString('en-GB')}, Day Trading Signal`,
     instrument: 'BTCUSDT',
@@ -112,6 +119,21 @@ export default function AdminDashboardPage() {
   const [newAnn, setNewAnn] = useState({ title: '', content: '', category: 'General' });
   const [kycUsers, setKycUsers] = useState([]);
   const [settings, setSettings] = useState({});
+  const [settingsForm, setSettingsForm] = useState({
+    platform_name: 'ApexTrade PRO',
+    min_deposit: '10',
+    min_withdrawal: '20',
+    withdrawal_fee_percent: '10',
+    referral_tier1_percent: '10',
+    referral_tier2_percent: '5',
+    referral_tier3_percent: '2',
+    support_telegram: 'https://t.me/apextrade_official',
+    support_email: 'support@apextrade.com',
+    trading_window_pst: '07:00 PM (PST)',
+    maintenance_mode: 'false'
+  });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
 
   // Live Support Chat Desk State
   const [supportConversations, setSupportConversations] = useState([]);
@@ -133,17 +155,21 @@ export default function AdminDashboardPage() {
     }
   }, [token, user]);
 
-  // Periodic Polling for Live Chat & Incoming Messages
+  // Periodic Polling for Live Chat, Stats, Deposits, & Withdrawals
   useEffect(() => {
     const interval = setInterval(() => {
       const admTok = getAdminToken();
       if (admTok) {
         fetchSupportConversations();
+        fetchStats();
+        fetchDeposits();
+        fetchWithdrawals();
+        fetchKyc();
         if (activeChatUserId && tab === 'support') {
           fetchConversationMessages(activeChatUserId);
         }
       }
-    }, 2500);
+    }, 3000);
     return () => clearInterval(interval);
   }, [activeChatUserId, tab]);
 
@@ -268,8 +294,111 @@ export default function AdminDashboardPage() {
       if (!admTok) return;
       const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${admTok}` } });
       const data = await res.json();
-      if (data.success) setSettings(data.data || {});
+      if (data.success && data.data) {
+        setSettings(data.data);
+        setSettingsForm(prev => ({
+          ...prev,
+          ...data.data
+        }));
+      }
     } catch (e) { console.error(e); }
+  };
+
+  const handleUpdateSignal = async (e) => {
+    e.preventDefault();
+    if (!editingSignal) return;
+    try {
+      setEditSignalLoading(true);
+      const id = editingSignal._id || editingSignal.id;
+      const res = await fetch(`${API_BASE}/api/signals/admin/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify(editingSignal)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Signal updated successfully!');
+        setEditingSignal(null);
+        fetchSignals();
+      } else {
+        alert(data.message || 'Failed to update signal');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEditSignalLoading(false);
+    }
+  };
+
+  const handleToggleSignalStatus = async (signal) => {
+    try {
+      const id = signal._id || signal.id;
+      const newStatus = signal.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE';
+      const res = await fetch(`${API_BASE}/api/signals/admin/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchSignals();
+      } else {
+        alert(data.message);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      setEditUserLoading(true);
+      setEditUserMessage('');
+      const id = editingUser._id || editingUser.id;
+      const res = await fetch(`${API_BASE}/api/admin/user/${id}/edit-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify(editingUser)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'User profile updated!');
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        setEditUserMessage('❌ ' + (data.message || 'Update failed'));
+      }
+    } catch (err) {
+      setEditUserMessage('❌ Failed to update user.');
+    } finally {
+      setEditUserLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    try {
+      setSettingsSaving(true);
+      setSettingsMessage('');
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify(settingsForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingsMessage('✅ Platform Controls & Financial Parameters updated successfully in database!');
+        fetchSettings();
+      } else {
+        setSettingsMessage('❌ ' + (data.message || 'Failed to save settings'));
+      }
+    } catch (err) {
+      setSettingsMessage('❌ Error saving system settings');
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   const fetchSupportConversations = async () => {
@@ -611,6 +740,23 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="p-5 border-t border-slate-800 space-y-3">
+          {/* Admin APK Download Card */}
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 space-y-2">
+            <div className="flex items-center gap-2 text-rose-400">
+              <Smartphone className="w-4 h-4" />
+              <span className="font-extrabold text-xs text-white">Admin Android APK</span>
+            </div>
+            <p className="text-[10px] text-slate-400">Lock-screen alerts for all deposits, withdrawals & support chat.</p>
+            <a
+              href="/downloads/ApexTrade_Admin.apk"
+              download="ApexTrade_Admin.apk"
+              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Admin APK</span>
+            </a>
+          </div>
+
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">
               SA
@@ -651,6 +797,16 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <a
+              href="/downloads/ApexTrade_Admin.apk"
+              download="ApexTrade_Admin.apk"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-md shadow-red-600/20 transition-all cursor-pointer"
+              title="Download Master Admin Android App"
+            >
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span className="hidden sm:inline">Download Admin APK</span>
+              <span className="sm:hidden">Admin App</span>
+            </a>
             <button
               onClick={fetchAllData}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
@@ -864,7 +1020,7 @@ export default function AdminDashboardPage() {
                               <option value="DEFAULT_MARKET">Pure Market Live</option>
                             </select>
                           </td>
-                          <td className="py-3.5 px-4 text-right space-x-1.5">
+                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                             <button
                               onClick={() => {
                                 setBalanceModalUser(u);
@@ -874,6 +1030,28 @@ export default function AdminDashboardPage() {
                               className="px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30 cursor-pointer"
                             >
                               ± Balance
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingUser({
+                                  ...u,
+                                  password: '',
+                                  withdrawal_password: '',
+                                  wallet_balance: u.wallet_balance || 0,
+                                  investment_balance: u.investment_balance || 0,
+                                  phone: u.phone || '',
+                                  saved_usdt_address: u.saved_usdt_address || '',
+                                  saved_usdt_network: u.saved_usdt_network || 'TRC-20',
+                                  kyc_status: u.kyc_status || 'NOT_SUBMITTED',
+                                  status: u.status || 'ACTIVE',
+                                  trade_mode: u.trade_mode || 'OFFICIAL_SIGNAL_PROTECTION',
+                                  custom_win_rate: u.custom_win_rate || 90
+                                });
+                                setEditUserMessage('');
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30 cursor-pointer"
+                            >
+                              Edit
                             </button>
                             <button
                               onClick={() => setInspectedUser(u)}
@@ -1023,16 +1201,28 @@ export default function AdminDashboardPage() {
                           <td className="py-3 px-3 font-mono">{s.duration_seconds}s</td>
                           <td className="py-3 px-3 font-mono text-emerald-400">+{s.profit_percentage}%</td>
                           <td className="py-3 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                              s.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
-                            }`}>
-                              {s.status}
-                            </span>
+                            <button
+                              onClick={() => handleToggleSignalStatus(s)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer transition-colors ${
+                                s.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                              }`}
+                              title="Click to toggle status"
+                            >
+                              {s.status} ⇄
+                            </button>
                           </td>
-                          <td className="py-3 px-3 text-right">
+                          <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => setEditingSignal({ ...s })}
+                              className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 cursor-pointer"
+                              title="Edit Signal"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleDeleteSignal(s._id || s.id)}
                               className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 cursor-pointer"
+                              title="Delete Signal"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1483,39 +1673,171 @@ export default function AdminDashboardPage() {
 
           {/* TAB 10: SETTINGS */}
           {tab === 'settings' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 max-w-2xl">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 max-w-4xl">
               <div>
-                <h3 className="text-lg font-black text-white">Platform System Parameters</h3>
-                <p className="text-xs text-slate-400">Global trading and financial parameters</p>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-blue-500" />
+                  <span>Platform System Parameters & Controls</span>
+                </h3>
+                <p className="text-xs text-slate-400">Edit and save live platform settings, financial boundaries, and customer contact parameters</p>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-4 bg-slate-800/40 rounded-2xl">
-                  <div>
-                    <span className="text-xs font-bold text-white block">Withdrawal Tax Rate</span>
-                    <span className="text-[11px] text-slate-400">Enforced 10% on crypto withdrawals</span>
+              {settingsMessage && (
+                <div className={`p-4 rounded-2xl text-xs font-bold ${
+                  settingsMessage.includes('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}>
+                  {settingsMessage}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveSettings} className="space-y-6">
+                {/* 1. General Branding & Signals */}
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-blue-400 tracking-wider">General Configuration</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Platform Brand Title</label>
+                      <input
+                        type="text"
+                        value={settingsForm.platform_name || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, platform_name: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Official Signal Window (PST / PKT)</label>
+                      <input
+                        type="text"
+                        value={settingsForm.trading_window_pst || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, trading_window_pst: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-bold font-mono"
+                      />
+                    </div>
                   </div>
-                  <span className="font-mono font-bold text-blue-400 text-sm">10.0%</span>
                 </div>
 
-                <div className="flex justify-between items-center p-4 bg-slate-800/40 rounded-2xl">
-                  <div>
-                    <span className="text-xs font-bold text-white block">3-Tier Referral Commissions</span>
-                    <span className="text-[11px] text-slate-400">Tier 1: 10% • Tier 2: 5% • Tier 3: 2%</span>
+                {/* 2. Financial Limits & Taxes */}
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Financial Boundaries & Taxes</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Min Deposit ($)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={settingsForm.min_deposit || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, min_deposit: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Min Withdrawal ($)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={settingsForm.min_withdrawal || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, min_withdrawal: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Withdrawal Tax Rate (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.5"
+                        value={settingsForm.withdrawal_fee_percent || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, withdrawal_fee_percent: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
                   </div>
-                  <span className="font-mono font-bold text-emerald-400 text-sm">10% / 5% / 2%</span>
                 </div>
 
-                <div className="flex justify-between items-center p-4 bg-slate-800/40 rounded-2xl">
-                  <div>
-                    <span className="text-xs font-bold text-white block">Dedicated Withdrawal PIN Security</span>
-                    <span className="text-[11px] text-slate-400">256-bit password authorization</span>
+                {/* 3. 3-Tier Affiliate Commission Rates */}
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider">3-Tier Affiliate Commission Yields</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Tier 1 Direct (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={settingsForm.referral_tier1_percent || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, referral_tier1_percent: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Tier 2 Secondary (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={settingsForm.referral_tier2_percent || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, referral_tier2_percent: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Tier 3 Tertiary (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={settingsForm.referral_tier3_percent || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, referral_tier3_percent: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono font-bold"
+                      />
+                    </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400">
-                    ENABLED
-                  </span>
                 </div>
-              </div>
+
+                {/* 4. Support Contact & Telegram Links */}
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-purple-400 tracking-wider">Official Support Desk & Links</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Support Telegram Group / Channel</label>
+                      <input
+                        type="text"
+                        placeholder="https://t.me/..."
+                        value={settingsForm.support_telegram || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, support_telegram: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Support Email Address</label>
+                      <input
+                        type="email"
+                        placeholder="support@apextrade.com"
+                        value={settingsForm.support_email || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, support_email: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={settingsSaving}
+                    className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-blue-500/20 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{settingsSaving ? 'Saving Controls...' : 'Save Platform Controls'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>
@@ -1620,6 +1942,373 @@ export default function AdminDashboardPage() {
               <X className="w-6 h-6" />
             </button>
             <img src={receiptModalUrl} alt="Uploaded Proof" className="max-h-[85vh] w-auto rounded-2xl shadow-2xl object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* MASTER USER EDITOR MODAL */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-amber-500" />
+                <span>Master User Profile Editor: {editingUser.name}</span>
+              </h3>
+              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editUserMessage && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
+                {editUserMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditUser} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingUser.name || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editingUser.email || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Set New Login Password (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Leave blank to keep unchanged"
+                    value={editingUser.password || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Set New Withdrawal PIN (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Leave blank to keep unchanged"
+                    value={editingUser.withdrawal_password || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, withdrawal_password: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Spot Balance ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingUser.wallet_balance !== undefined ? editingUser.wallet_balance : ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, wallet_balance: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold text-emerald-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Investment Balance ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingUser.investment_balance !== undefined ? editingUser.investment_balance : ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, investment_balance: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold text-blue-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Saved USDT Address</label>
+                  <input
+                    type="text"
+                    placeholder="T..."
+                    value={editingUser.saved_usdt_address || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, saved_usdt_address: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editingUser.phone || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Account Status</label>
+                  <select
+                    value={editingUser.status || 'ACTIVE'}
+                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                    <option value="BANNED">BANNED</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">KYC Status</label>
+                  <select
+                    value={editingUser.kyc_status || 'NOT_SUBMITTED'}
+                    onChange={(e) => setEditingUser({ ...editingUser, kyc_status: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="REJECTED">REJECTED</option>
+                    <option value="NOT_SUBMITTED">NOT SUBMITTED</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Trade Mode</label>
+                  <select
+                    value={editingUser.trade_mode || 'OFFICIAL_SIGNAL_PROTECTION'}
+                    onChange={(e) => setEditingUser({ ...editingUser, trade_mode: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="OFFICIAL_SIGNAL_PROTECTION">Signal Protected</option>
+                    <option value="FORCE_WIN">Force 100% Wins</option>
+                    <option value="FORCE_LOSS">Force 100% Losses</option>
+                    <option value="DEFAULT_MARKET">Pure Market Live</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editUserLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {editUserLoading ? 'Saving Profile...' : 'Save User Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* USER DETAILS INSPECTION MODAL */}
+      {inspectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">{inspectedUser.name}</h3>
+                <p className="text-xs text-slate-400 font-mono">{inspectedUser.email}</p>
+              </div>
+              <button onClick={() => setInspectedUser(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Spot Balance</span>
+                <span className="text-base font-mono font-black text-emerald-400">${Number(inspectedUser.wallet_balance || 0).toFixed(2)}</span>
+              </div>
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Investments</span>
+                <span className="text-base font-mono font-black text-blue-400">${Number(inspectedUser.investment_balance || 0).toFixed(2)}</span>
+              </div>
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Referral Code</span>
+                <span className="font-mono font-bold text-white">{inspectedUser.referral_code || 'N/A'}</span>
+              </div>
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Referred By</span>
+                <span className="font-mono font-bold text-slate-300">{inspectedUser.referred_by || 'Direct'}</span>
+              </div>
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">KYC Verification</span>
+                <span className="font-bold text-white">{inspectedUser.kyc_status || 'NOT_SUBMITTED'}</span>
+              </div>
+              <div className="p-3 bg-slate-800/60 rounded-xl">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Trade Outcome Mode</span>
+                <span className="font-bold text-white">{inspectedUser.trade_mode || 'OFFICIAL_SIGNAL_PROTECTION'}</span>
+              </div>
+            </div>
+
+            {inspectedUser.saved_usdt_address && (
+              <div className="p-3 bg-slate-800/60 rounded-xl space-y-1">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">Saved USDT TRC-20 Address</span>
+                <p className="text-xs font-mono text-white break-all">{inspectedUser.saved_usdt_address}</p>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingUser({ ...inspectedUser });
+                  setInspectedUser(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold cursor-pointer"
+              >
+                Edit Full Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => setInspectedUser(null)}
+                className="py-2.5 px-5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT SIGNAL MODAL */}
+      {editingSignal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-500" />
+                <span>Edit Daily Signal: {editingSignal.instrument}</span>
+              </h3>
+              <button onClick={() => setEditingSignal(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSignal} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Signal Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSignal.title || ''}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, title: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Instrument Pair</label>
+                  <select
+                    value={editingSignal.instrument || 'BTCUSDT'}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, instrument: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="BTCUSDT">BTCUSDT</option>
+                    <option value="ETHUSDT">ETHUSDT</option>
+                    <option value="SOLUSDT">SOLUSDT</option>
+                    <option value="XAUUSD">XAUUSD (Gold)</option>
+                    <option value="EURUSD">EURUSD</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Order Direction</label>
+                  <select
+                    value={editingSignal.order_type || 'BUY'}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, order_type: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="BUY">BUY / CALL</option>
+                    <option value="SELL">SELL / PUT</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Execution Time (PST / PKT)</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSignal.execution_time_pst || ''}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, execution_time_pst: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Duration (Seconds)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingSignal.duration_seconds || 180}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, duration_seconds: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Profit Yield (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editingSignal.profit_percentage || 5}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, profit_percentage: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Status</label>
+                  <select
+                    value={editingSignal.status || 'ACTIVE'}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, status: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="EXPIRED">EXPIRED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSignal(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSignalLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {editSignalLoading ? 'Saving Signal...' : 'Save Signal Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

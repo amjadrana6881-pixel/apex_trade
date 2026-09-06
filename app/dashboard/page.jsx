@@ -140,23 +140,25 @@ export default function Dashboard() {
         </div>
 
         {/* Android Native APK Download Card */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4">
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-3xl p-6 shadow-md shadow-blue-500/10 flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-blue-200" />
               <span className="text-xs font-black uppercase text-blue-200">Native Android App</span>
             </div>
-            <h3 className="text-xl font-extrabold mt-1">Get ApexTrade APK</h3>
-            <p className="text-xs text-blue-100 mt-1">Instant hardware acceleration, biometric login & instant execution.</p>
+            <h3 className="text-xl font-extrabold mt-1">ApexTrade PRO APK</h3>
+            <p className="text-xs text-blue-100 mt-1">
+              Lock-screen signal countdowns (20m, 10m, 5m), instant profit alerts & live support push notifications.
+            </p>
           </div>
 
           <a
-            href="/downloads/ApexTrade.apk"
-            download="ApexTrade.apk"
-            className="w-full py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
+            href="/downloads/ApexTrade_User.apk"
+            download="ApexTrade_User.apk"
+            className="w-full py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4 text-blue-600" />
-            <span>Download APK (Direct)</span>
+            <span>Download Trader APK (Direct)</span>
           </a>
         </div>
       </div>

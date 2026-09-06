@@ -120,12 +120,12 @@ export default function Sidebar() {
           </div>
           <p className="text-[10px] text-slate-500">Zero updates required. Realtime cloud sync.</p>
           <a
-            href="/downloads/ApexTrade.apk"
-            download="ApexTrade.apk"
-            className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+            href="/downloads/ApexTrade_User.apk"
+            download="ApexTrade_User.apk"
+            className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download APK</span>
+            <span>Download User APK</span>
           </a>
         </div>
       </div>
