@@ -3,7 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import ClientLayout from './components/ClientLayout';
 
 export const metadata = {
-  title: 'ApexTrade PRO - Advanced High-Frequency Option & Crypto Trading Platform',
+  title: 'ApexTrader PRO - Advanced High-Frequency Option & Crypto Trading Platform',
   description: 'Trade institutional crypto options, live forex, gold, and indices with real-time settlement, daily verified signals, automated yields, and instant crypto payouts.',
   icons: {
     icon: '/logo.svg',

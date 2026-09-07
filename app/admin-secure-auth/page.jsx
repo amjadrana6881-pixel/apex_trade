@@ -55,7 +55,7 @@ export default function AdminLoginPage() {
         {/* Brand Logo & Master Shield */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <img src="/logo.svg" alt="ApexTrade Master" className="w-full h-full rounded-2xl" />
+            <img src="/logo.svg" alt="ApexTrader Master" className="w-full h-full rounded-2xl" />
           </div>
           <span className="px-3 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black tracking-wider uppercase">
             RESTRICTED ADMIN PORTAL
@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
         </form>
 
         <div className="text-center pt-2 border-t border-slate-700/60 text-[11px] text-slate-500">
-          ApexTrade Master Security Layer 2.0 • Encrypted Auth
+          ApexTrader Master Security Layer 2.0 • Encrypted Auth
         </div>
       </div>
     </div>

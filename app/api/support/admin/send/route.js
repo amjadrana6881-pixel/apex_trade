@@ -58,7 +58,7 @@ export async function POST(request) {
     const newMsg = await SupportMessage.create({
       user_id: userId,
       sender_role: 'admin',
-      sender_name: user.name || 'ApexTrade Senior Support Desk',
+      sender_name: user.name || 'ApexTrader Senior Support Desk',
       message: message.trim(),
       image_url: imageUrl,
       is_seen: false

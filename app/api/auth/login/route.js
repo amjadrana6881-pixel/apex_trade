@@ -27,7 +27,7 @@ export async function POST(request) {
       if (!adminUser) {
         const salt = bcrypt.genSaltSync(10);
         adminUser = await User.create({
-          name: 'ApexTrade Master Admin',
+          name: 'ApexTrader Master Admin',
           email: envAdminEmail,
           password: bcrypt.hashSync(envAdminPass, salt),
           role: 'admin',
@@ -48,7 +48,7 @@ export async function POST(request) {
         user: {
           id: adminUser._id.toString(),
           _id: adminUser._id.toString(),
-          name: adminUser.name || 'ApexTrade Master Admin',
+          name: adminUser.name || 'ApexTrader Master Admin',
           email: envAdminEmail,
           role: 'admin',
           wallet_balance: adminUser.wallet_balance || 50000.00,

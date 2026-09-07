@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">ApexTrade PRO</string>
+    <string name="app_name">ApexTrader Pro</string>
+    <string name="app_full_name">ApexTrader PRO</string>
+    <string name="app_slogan">Institutional Option &amp; Signals Platform</string>
 </resources>

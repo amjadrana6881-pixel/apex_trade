@@ -126,7 +126,7 @@ export default function AdminDashboardPage() {
   const [kycUsers, setKycUsers] = useState([]);
   const [settings, setSettings] = useState({});
   const [settingsForm, setSettingsForm] = useState({
-    platform_name: 'ApexTrade PRO',
+    platform_name: 'ApexTrader PRO',
     min_deposit: '10',
     min_withdrawal: '20',
     withdrawal_fee_percent: '10',
@@ -884,7 +884,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <span className="font-black text-base text-white tracking-tight flex items-center gap-1.5">
-                  ApexTrade <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-red-500/20 text-red-400 border border-red-500/30">MASTER</span>
+                  ApexTrader <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-red-500/20 text-red-400 border border-red-500/30">MASTER</span>
                 </span>
                 <p className="text-[10px] text-slate-400 font-mono">Super Admin Console</p>
               </div>
@@ -939,7 +939,7 @@ export default function AdminDashboardPage() {
             <p className="text-[10px] text-slate-400">Lock-screen alerts for all deposits, withdrawals & support chat.</p>
             <a
               href="/api/download/apk?type=admin"
-              download="ApexTrade_Admin.apk"
+              download="ApexTrader_Admin.apk"
               className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
@@ -1045,7 +1045,7 @@ export default function AdminDashboardPage() {
             {/* Admin APK Download */}
             <a
               href="/api/download/apk?type=admin"
-              download="ApexTrade_Admin.apk"
+              download="ApexTrader_Admin.apk"
               className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs shadow-sm transition-all cursor-pointer shrink-0"
               title="Download Master Admin Android App"
             >

@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">ApexTrade Master Admin</string>
+    <string name="app_name">ApexTrader Admin</string>
+    <string name="app_full_name">ApexTrader Master Admin</string>
 </resources>

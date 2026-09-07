@@ -83,11 +83,11 @@ export default function Header() {
           <Link href="/dashboard" className="flex items-center gap-2 group shrink-0">
             <img
               src="/logo.svg"
-              alt="ApexTrade"
+              alt="ApexTrader"
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs group-hover:scale-105 transition-transform"
             />
             <div className="flex items-center gap-1.5">
-              <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 leading-none">ApexTrade</span>
+              <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 leading-none">ApexTrader</span>
               <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200 leading-none">
                 PRO
               </span>
@@ -125,9 +125,9 @@ export default function Header() {
           {/* Download App Button */}
           <a
             href="/api/download/apk?type=user"
-            download="ApexTrade_User.apk"
+            download="ApexTrader_Pro.apk"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs border border-blue-200 transition-all cursor-pointer shadow-2xs"
-            title="Download ApexTrade PRO Android APK"
+            title="Download ApexTrader PRO Android APK"
           >
             <Download className="w-3.5 h-3.5 text-blue-600" />
             <span>Download App</span>
@@ -248,7 +248,7 @@ export default function Header() {
             <div className="pt-2 border-t border-slate-100">
               <a
                 href="/api/download/apk?type=user"
-                download="ApexTrade_User.apk"
+                download="ApexTrader_Pro.apk"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs shadow-md shadow-blue-500/20"
               >
                 <Download className="w-4 h-4" />

@@ -542,8 +542,8 @@ export default function ProfilePage() {
                   <Smartphone className="w-5 h-5 text-blue-200" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold">ApexTrade PRO Android App</h3>
-                  <p className="text-xs text-blue-100">Package: com.apextrade.user (v2.0.0)</p>
+                  <h3 className="text-base font-extrabold">ApexTrader PRO Android App</h3>
+                  <p className="text-xs text-blue-100">Package: com.apextrade.user (v2.1.0)</p>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-black border border-emerald-400/30">
@@ -564,11 +564,11 @@ export default function ProfilePage() {
 
             <a
               href="/api/download/apk?type=user"
-              download="ApexTrade_User.apk"
+              download="ApexTrader_Pro.apk"
               className="w-full py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
             >
               <Download className="w-4 h-4 text-blue-600" />
-              <span>Download ApexTrade User APK</span>
+              <span>Download ApexTrader Pro APK</span>
             </a>
           </div>
         </div>

@@ -12,7 +12,7 @@ export default function TermsPage() {
           <span>Terms and Conditions & Risk Disclosure</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          ApexTrade PRO Institutional Options & Crypto Financial Services Agreement.
+          ApexTrader PRO Institutional Options & Crypto Financial Services Agreement.
         </p>
       </div>
 
@@ -20,7 +20,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-base font-bold text-slate-900">1. General Terms of Service</h2>
           <p>
-            By registering and accessing ApexTrade PRO, you agree to comply with platform terms, daily signal execution protocols, and risk management guidelines. You acknowledge that binary and high-frequency option trading involves rapid capital risk.
+            By registering and accessing ApexTrader PRO, you agree to comply with platform terms, daily signal execution protocols, and risk management guidelines. You acknowledge that binary and high-frequency option trading involves rapid capital risk.
           </p>
         </section>
 

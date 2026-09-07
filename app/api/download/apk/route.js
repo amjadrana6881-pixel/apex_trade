@@ -7,8 +7,25 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const type = (searchParams.get('type') || 'user').toLowerCase();
 
-    const fileName = type === 'admin' ? 'ApexTrade_Admin.apk' : 'ApexTrade_User.apk';
-    const filePath = path.join(process.cwd(), 'public', 'downloads', fileName);
+    let fileName = type === 'admin' ? 'ApexTrader_Admin.apk' : 'ApexTrader_Pro.apk';
+    let filePath = path.join(process.cwd(), 'public', 'downloads', fileName);
+
+    // Fallbacks for compatibility
+    if (!fs.existsSync(filePath)) {
+      if (type === 'admin') {
+        filePath = path.join(process.cwd(), 'public', 'downloads', 'ApexTrade_Admin.apk');
+      } else {
+        const fallbacks = ['ApexTrader_User.apk', 'ApexTrade_User.apk', 'ApexTrade.apk'];
+        for (const fb of fallbacks) {
+          const fbPath = path.join(process.cwd(), 'public', 'downloads', fb);
+          if (fs.existsSync(fbPath)) {
+            filePath = fbPath;
+            fileName = fb;
+            break;
+          }
+        }
+      }
+    }
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(

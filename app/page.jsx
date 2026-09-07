@@ -26,7 +26,7 @@ export default function RootPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-900">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-        <span className="text-sm text-slate-500 font-bold">Launching ApexTrade PRO...</span>
+        <span className="text-sm text-slate-500 font-bold">Launching ApexTrader PRO...</span>
       </div>
     </div>
   );

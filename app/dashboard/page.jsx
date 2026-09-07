@@ -288,7 +288,7 @@ export default function Dashboard() {
               <Smartphone className="w-5 h-5 text-blue-200" />
               <span className="text-xs font-black uppercase text-blue-200">Native Android App</span>
             </div>
-            <h3 className="text-xl font-extrabold mt-1">ApexTrade PRO APK</h3>
+            <h3 className="text-xl font-extrabold mt-1">ApexTrader PRO APK</h3>
             <p className="text-xs text-blue-100 mt-1">
               Lock-screen signal countdowns (20m, 10m, 5m), instant profit alerts & live support push notifications.
             </p>
@@ -296,11 +296,11 @@ export default function Dashboard() {
 
           <a
             href="/api/download/apk?type=user"
-            download="ApexTrade_User.apk"
+            download="ApexTrader_Pro.apk"
             className="w-full py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4 text-blue-600" />
-            <span>Download Trader APK (Direct)</span>
+            <span>Download ApexTrader APK</span>
           </a>
         </div>
       </div>

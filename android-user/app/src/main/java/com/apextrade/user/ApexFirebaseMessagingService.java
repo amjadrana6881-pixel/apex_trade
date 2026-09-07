@@ -17,8 +17,8 @@ import com.google.firebase.messaging.RemoteMessage;
 
 public class ApexFirebaseMessagingService extends FirebaseMessagingService {
 
-    private static final String CHANNEL_ID = "apextrade_high_alerts";
-    private static final String CHANNEL_NAME = "ApexTrade Signals & Trade Alerts";
+    private static final String CHANNEL_ID = "apextrader_high_alerts";
+    private static final String CHANNEL_NAME = "ApexTrader Signals & Trade Alerts";
 
     @Override
     public void onNewToken(@NonNull String token) {
@@ -30,7 +30,7 @@ public class ApexFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        String title = "ApexTrade Alert";
+        String title = "ApexTrader Alert";
         String body = "";
 
         if (remoteMessage.getNotification() != null) {
@@ -65,7 +65,7 @@ public class ApexFirebaseMessagingService extends FirebaseMessagingService {
 
         NotificationCompat.Builder notificationBuilder =
                 new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(android.R.drawable.ic_dialog_info)
+                        .setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle(title)
                         .setContentText(messageBody)
                         .setStyle(new NotificationCompat.BigTextStyle().bigText(messageBody))

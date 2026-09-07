@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
               </div>
               <div>
                 <span className="text-base font-black text-white flex items-center gap-1.5">
-                  ApexTrade <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 text-[9px] font-black border border-blue-400/30">PRO</span>
+                  ApexTrader <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 text-[9px] font-black border border-blue-400/30">PRO</span>
                 </span>
                 <p className="text-[10px] text-slate-400 font-mono">Account Recovery Portal</p>
               </div>
@@ -260,7 +260,7 @@ export default function ForgotPasswordPage() {
               </div>
               <h2 className="text-xl font-black text-white">Password Updated!</h2>
               <p className="text-xs text-slate-400">
-                You can now log in to your ApexTrade account with your updated credentials.
+                You can now log in to your ApexTrader account with your updated credentials.
               </p>
               <Link
                 href="/login"

@@ -98,7 +98,7 @@ export default function LoginPage() {
               </div>
               <div>
                 <span className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                  ApexTrade <span className="px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-300 text-[10px] font-black border border-blue-400/30">PRO</span>
+                  ApexTrader <span className="px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-300 text-[10px] font-black border border-blue-400/30">PRO</span>
                 </span>
                 <p className="text-[11px] text-slate-400 font-mono">Institutional Trading Terminal</p>
               </div>
@@ -154,7 +154,7 @@ export default function LoginPage() {
 
           {/* Bottom Security Footer */}
           <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-            <span>ApexTrade PRO © 2026</span>
+            <span>ApexTrader PRO © 2026</span>
             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               256-Bit SSL Encrypted
@@ -178,7 +178,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <span className="text-base font-black text-white flex items-center gap-1.5">
-                    ApexTrade <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 text-[9px] font-black border border-blue-400/30">PRO</span>
+                    ApexTrader <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 text-[9px] font-black border border-blue-400/30">PRO</span>
                   </span>
                   <p className="text-[10px] text-slate-400 font-mono">Options & Signals Portal</p>
                 </div>

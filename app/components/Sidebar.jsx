@@ -46,12 +46,12 @@ export default function Sidebar() {
         <Link href="/dashboard" className="flex items-center gap-3 px-2 group">
           <img 
             src="/logo.svg" 
-            alt="ApexTrade Logo" 
+            alt="ApexTrader Logo" 
             className="w-10 h-10 rounded-2xl shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform" 
           />
           <div>
             <div className="flex items-center gap-1">
-              <span className="font-black text-lg text-slate-900 tracking-tight leading-tight">ApexTrade</span>
+              <span className="font-black text-lg text-slate-900 tracking-tight leading-tight">ApexTrader</span>
               <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-blue-50 text-blue-600 border border-blue-200">
                 PRO
               </span>
@@ -121,11 +121,11 @@ export default function Sidebar() {
           <p className="text-[10px] text-slate-500">Zero updates required. Realtime cloud sync.</p>
           <a
             href="/api/download/apk?type=user"
-            download="ApexTrade_User.apk"
+            download="ApexTrader_Pro.apk"
             className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download User APK</span>
+            <span>Download ApexTrader APK</span>
           </a>
         </div>
       </div>

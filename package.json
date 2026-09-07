@@ -1,7 +1,7 @@
 {
-  "name": "apextrade-fullstack",
-  "version": "2.0.0",
-  "description": "ApexTrade Full-Stack Option Trading & Signals Platform",
+  "name": "apextrader-fullstack",
+  "version": "2.1.0",
+  "description": "ApexTrader Full-Stack Option Trading & Signals Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

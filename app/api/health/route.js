@@ -6,7 +6,7 @@ export async function GET() {
     await connectToDatabase();
     return NextResponse.json({
       status: 'online',
-      platform: 'ApexTrade Next.js Full-Stack Option & Signals Platform',
+      platform: 'ApexTrader Next.js Full-Stack Option & Signals Platform',
       database: 'MongoDB Connected',
       timestamp: new Date().toISOString()
     });
