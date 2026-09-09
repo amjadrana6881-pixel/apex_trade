@@ -14,6 +14,7 @@ export async function GET(request) {
     const skip = (page - 1) * pageSize;
 
     await connectToDatabase();
+    await processExpiredTrades();
 
     const totalCount = await Trade.countDocuments({ user_id: user._id });
     const totalPages = Math.ceil(totalCount / pageSize) || 1;
