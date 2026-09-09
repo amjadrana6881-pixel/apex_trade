@@ -28,8 +28,8 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    public static final String APP_URL = "https://apextrade.net/admin";
-    public static final String API_FCM_REGISTER_URL = "https://apextrade.net/api/auth/save-fcm-token";
+    public static final String APP_URL = "https://apextraderpro.vercel.app/admin";
+    public static final String API_FCM_REGISTER_URL = "https://apextraderpro.vercel.app/api/auth/save-fcm-token";
 
     private WebView webView;
     private ProgressBar progressBar;

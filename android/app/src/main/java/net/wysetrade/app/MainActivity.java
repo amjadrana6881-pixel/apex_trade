@@ -43,9 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILE_CHOOSER_RESULT_CODE = 1001;
 
-    // Set this to your live Netlify production URL or local development server.
-    // When live on Netlify, replace with your live Netlify domain (e.g., "https://your-apextrade.netlify.app")
-    private static final String APP_URL = "http://192.168.100.5:3000";
+    private static final String APP_URL = "https://apextraderpro.vercel.app";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override

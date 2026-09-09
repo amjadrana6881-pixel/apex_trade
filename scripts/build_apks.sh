@@ -11,6 +11,10 @@ PROJECT_ROOT="$(pwd)"
 OUTPUT_DIR="${PROJECT_ROOT}/public/downloads"
 mkdir -p "${OUTPUT_DIR}"
 
+# 0. Generate fresh icons
+echo "🎨 [0/2] Syncing Android icon assets across all mipmaps..."
+node "${PROJECT_ROOT}/scripts/generate_android_icons.js"
+
 # 1. Build User APK
 echo "📱 [1/2] Building ApexTrader Pro User APK (com.apextrade.user)..."
 cd "${PROJECT_ROOT}/android-user"

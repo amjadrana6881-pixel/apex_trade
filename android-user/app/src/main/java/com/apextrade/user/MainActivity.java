@@ -47,8 +47,8 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    public static final String APP_URL = "https://apextrade.net/dashboard";
-    public static final String API_FCM_REGISTER_URL = "https://apextrade.net/api/auth/save-fcm-token";
+    public static final String APP_URL = "https://apextraderpro.vercel.app/dashboard";
+    public static final String API_FCM_REGISTER_URL = "https://apextraderpro.vercel.app/api/auth/save-fcm-token";
     private static final int FILE_CHOOSER_RESULT_CODE = 2001;
 
     private WebView webView;
