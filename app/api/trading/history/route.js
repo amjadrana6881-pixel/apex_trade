@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
+import { processExpiredTrades } from '@/lib/marketEngine';
 import Trade from '@/models/Trade';
 
 export async function GET(request) {

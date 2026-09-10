@@ -10,6 +10,7 @@ const TransactionSchema = new mongoose.Schema({
       'TRADE_ORDER', 
       'TRADE_WIN', 
       'TRADE_LOSS', 
+      'TRADE_EARLY_EXIT',
       'INVESTMENT', 
       'INVESTMENT_PAYOUT', 
       'REFERRAL_BONUS', 

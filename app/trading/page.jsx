@@ -49,6 +49,10 @@ function TradingContent() {
   // Confirmation Modal
   const [showConfirmModal, setShowConfirmModal] = useState(autoConfirm);
 
+  // Early Stop Modal State
+  const [showEarlyStopModal, setShowEarlyStopModal] = useState(false);
+  const [stoppingTrade, setStoppingTrade] = useState(false);
+
   // Active Running Trade Execution State
   const [activeTrade, setActiveTrade] = useState(null);
   const [countdown, setCountdown] = useState(0);
@@ -284,6 +288,49 @@ function TradingContent() {
     }
   };
 
+  // Early Stop Running Trade (3% - 5% penalty refund)
+  const handleEarlyStopTrade = async () => {
+    if (!activeTrade) return;
+
+    try {
+      setStoppingTrade(true);
+      const tradeId = activeTrade.id || activeTrade._id;
+
+      const res = await fetch(`${API_BASE}/api/trading/stop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ tradeId })
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error || 'Failed to stop trade.');
+        setStoppingTrade(false);
+        return;
+      }
+
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+
+      setShowEarlyStopModal(false);
+      setActiveTrade(null);
+      setIsCountdownModalOpen(false);
+      setTradeResult(data.trade);
+      fetchProfile();
+      fetchTradeHistory(1);
+    } catch (err) {
+      console.error('Early stop trade error:', err);
+      alert('Network error while stopping trade.');
+    } finally {
+      setStoppingTrade(false);
+    }
+  };
+
   const isMatchingActiveSignal = activeSignal && 
     activeSignal.instrument?.replace('/', '').toUpperCase() === selectedPair?.replace('/', '').toUpperCase() &&
     activeSignal.order_type?.toUpperCase() === tradeType?.toUpperCase();
@@ -321,6 +368,9 @@ function TradingContent() {
               setSelectedPair(activeSignal.instrument.replace('/', ''));
               setTradeType(activeSignal.order_type);
               setDuration(activeSignal.duration_seconds || 900);
+              if (userBal > 0) {
+                setTradeAmount(Math.floor(userBal));
+              }
               setShowConfirmModal(true);
             }}
             className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold whitespace-nowrap shadow-sm cursor-pointer"
@@ -431,6 +481,7 @@ function TradingContent() {
                   <tbody className="divide-y divide-slate-100">
                     {tradeHistory.map((t) => {
                       const isWin = t.result === 'WIN';
+                      const isStopped = t.result === 'STOPPED' || t.stopped_early;
                       return (
                         <tr key={t.id || t._id} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 px-3 font-extrabold text-slate-900">{t.pair}</td>
@@ -444,15 +495,25 @@ function TradingContent() {
                           <td className="py-3 px-3 font-mono font-bold text-slate-800">${Number(t.amount).toFixed(2)}</td>
                           <td className="py-3 px-3">
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black ${
-                              isWin ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                              isStopped
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : isWin
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-600 border border-rose-200'
                             }`}>
-                              {t.result}
+                              {isStopped ? 'STOPPED' : t.result}
                             </span>
                           </td>
                           <td className="py-3 px-3 font-mono font-extrabold">
-                            <span className={isWin ? 'text-emerald-600' : 'text-rose-600'}>
-                              {isWin ? `+$${Number(t.profit).toFixed(2)}` : `-$${Number(t.amount).toFixed(2)}`}
-                            </span>
+                            {isStopped ? (
+                              <span className="text-amber-600">
+                                -${Number(t.early_stop_fee || Math.abs(t.profit || 0)).toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className={isWin ? 'text-emerald-600' : 'text-rose-600'}>
+                                {isWin ? `+$${Number(t.profit).toFixed(2)}` : `-$${Number(t.amount).toFixed(2)}`}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-right text-slate-400 font-mono text-[11px] whitespace-nowrap">
                             {formatPKT(t.created_at || t.createdAt)}
@@ -627,7 +688,7 @@ function TradingContent() {
       {/* 1. TRADE CONFIRMATION MODAL */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4">
             <button
               onClick={() => setShowConfirmModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -640,10 +701,77 @@ function TradingContent() {
                 ORDER CONFIRMATION
               </span>
               <h3 className="text-xl font-black text-slate-900 mt-1">Confirm Live Option Trade</h3>
-              <p className="text-xs text-slate-500">Please review contract parameters before placement.</p>
+              <p className="text-xs text-slate-500">Please review contract parameters and capital before placement.</p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5 text-xs">
+            {/* Error Message */}
+            {tradeError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{tradeError}</span>
+              </div>
+            )}
+
+            {/* Trade Amount Input with MAX Option */}
+            <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Trade Capital (USD)
+                </label>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Balance:</span>
+                  <span className="font-mono font-extrabold text-emerald-600">${userBal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Amount Input with MAX button */}
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 text-slate-400 font-bold text-base pointer-events-none">
+                  $
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={userBal}
+                  step="any"
+                  value={tradeAmount}
+                  onChange={(e) => {
+                    setTradeAmount(e.target.value);
+                    setTradeError('');
+                  }}
+                  placeholder="Enter amount"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-20 py-2.5 text-base font-black font-mono text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSetPercentAmount(100)}
+                  className="absolute right-2 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-colors cursor-pointer shadow-xs"
+                >
+                  MAX
+                </button>
+              </div>
+
+              {/* Quick Percent Buttons */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: '25%', pct: 25 },
+                  { label: '50%', pct: 50 },
+                  { label: '75%', pct: 75 },
+                  { label: '🔥 100%', pct: 100 }
+                ].map((item) => (
+                  <button
+                    key={item.pct}
+                    type="button"
+                    onClick={() => handleSetPercentAmount(item.pct)}
+                    className="py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors text-center cursor-pointer shadow-2xs"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs">
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
                 <span className="text-slate-500 font-bold">Asset Instrument:</span>
                 <span className="font-mono font-black text-slate-900 text-sm">{selectedPair}</span>
@@ -656,11 +784,6 @@ function TradingContent() {
                 }`}>
                   {tradeType} MARKET
                 </span>
-              </div>
-
-              <div className="flex justify-between items-center py-1 border-b border-slate-200">
-                <span className="text-slate-500 font-bold">Investment Capital:</span>
-                <span className="font-mono font-black text-slate-900 text-sm">${Number(tradeAmount).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
@@ -705,7 +828,7 @@ function TradingContent() {
                 className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Zap className="w-4 h-4" />
-                <span>Confirm & Place Order</span>
+                <span>Confirm & Place (${Number(tradeAmount || 0).toFixed(0)})</span>
               </button>
             </div>
           </div>
@@ -715,7 +838,7 @@ function TradingContent() {
       {/* 2. ACTIVE TRADE COUNTDOWN MODAL */}
       {activeTrade && isCountdownModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="relative w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl text-center space-y-4">
             
             <button
               onClick={() => setIsCountdownModalOpen(false)}
@@ -737,26 +860,76 @@ function TradingContent() {
             <LiveTradePulseGraph trade={activeTrade} countdown={countdown} />
 
             {/* Circular Countdown Display */}
-            <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 mx-auto flex items-center justify-center">
               <div className="w-full h-full rounded-full border-4 border-blue-100 flex items-center justify-center bg-blue-50/40">
                 <div className="text-center">
-                  <span className="text-4xl font-black font-mono text-blue-600">{countdown}</span>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase mt-0.5">Seconds Left</span>
+                  <span className="text-3xl sm:text-4xl font-black font-mono text-blue-600">{countdown}</span>
+                  <span className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase mt-0.5">Seconds Left</span>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Live algorithmic execution in progress. All times in Pakistan Standard Time (PKT).
+            <p className="text-[11px] text-slate-400">
+              Live algorithmic execution in progress (PKT). You can stop anytime before completion.
             </p>
 
-            <button
-              onClick={() => setIsCountdownModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-              <span>Minimize & Keep Running in Background</span>
-            </button>
+            {/* EMERGENCY EARLY STOP MODAL / DIALOG */}
+            {showEarlyStopModal ? (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-left space-y-2.5 animate-in fade-in">
+                <div className="flex items-center gap-2 text-rose-800 font-extrabold text-xs">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Stop Trade Early & Refund Capital?</span>
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">
+                  Stopping early terminates the trade immediately. A minor <strong>3% to 5%</strong> early settlement fee is deducted, and the remaining <strong>95% to 97% (~${(Number(activeTrade.amount) * 0.96).toFixed(2)})</strong> is refunded to your spot balance instantly.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowEarlyStopModal(false)}
+                    disabled={stoppingTrade}
+                    className="flex-1 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 cursor-pointer"
+                  >
+                    Keep Running
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEarlyStopTrade}
+                    disabled={stoppingTrade}
+                    className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    {stoppingTrade ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Stopping...</span>
+                      </>
+                    ) : (
+                      <span>🛑 Stop & Refund</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                {/* Prominent Stop Trade Early Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowEarlyStopModal(true)}
+                  className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                >
+                  <ShieldAlert className="w-4 h-4 text-rose-600" />
+                  <span>Stop Trade Early (Emergency Exit)</span>
+                </button>
+
+                <button
+                  onClick={() => setIsCountdownModalOpen(false)}
+                  className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Minimize to Background</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -772,7 +945,40 @@ function TradingContent() {
               <X className="w-4 h-4" />
             </button>
 
-            {tradeResult.result === 'WIN' ? (
+            {tradeResult.result === 'STOPPED' || tradeResult.stopped_early ? (
+              <>
+                <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <ShieldAlert className="w-9 h-9" />
+                </div>
+                <div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] uppercase">
+                    EARLY SETTLEMENT
+                  </span>
+                  <h3 className="text-2xl font-black text-amber-600 mt-1">TRADE STOPPED EARLY</h3>
+                  <p className="text-3xl font-black font-mono text-slate-900 mt-2">
+                    +${Number(tradeResult.refunded_amount || (tradeResult.amount - Math.abs(tradeResult.profit))).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Remaining capital refunded to your spot wallet.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1.5 text-left">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Original Trade Capital:</span>
+                    <span className="font-mono font-bold text-slate-900">${Number(tradeResult.amount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Early Exit Penalty ({tradeResult.penalty_percentage || 4}%):</span>
+                    <span className="font-mono font-bold text-rose-600">-${Number(tradeResult.early_stop_fee || Math.abs(tradeResult.profit)).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-800 font-black border-t border-amber-200 pt-1">
+                    <span>Net Refunded to Wallet:</span>
+                    <span className="font-mono font-bold text-emerald-600">+${Number(tradeResult.refunded_amount || (tradeResult.amount - Math.abs(tradeResult.profit))).toFixed(2)}</span>
+                  </div>
+                </div>
+              </>
+            ) : tradeResult.result === 'WIN' ? (
               <>
                 <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
                   <CheckCircle2 className="w-9 h-9" />
@@ -810,13 +1016,13 @@ function TradingContent() {
               </>
             )}
 
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1 text-left">
               <div className="flex justify-between text-slate-500">
-                <span>Contract Pair</span>
+                <span>Contract Pair:</span>
                 <span className="font-bold text-slate-900">{tradeResult.pair}</span>
               </div>
               <div className="flex justify-between text-slate-500">
-                <span>Updated Spot Balance</span>
+                <span>Updated Spot Balance:</span>
                 <span className="font-bold font-mono text-slate-900">${userBal.toFixed(2)}</span>
               </div>
             </div>

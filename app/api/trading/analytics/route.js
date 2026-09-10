@@ -38,6 +38,8 @@ export async function GET(request) {
       } else if (t.result === 'LOSS') {
         lossCount++;
         totalLossAmount += Number(t.amount || 0);
+      } else if (t.result === 'STOPPED') {
+        totalLossAmount += Number(t.early_stop_fee || Math.abs(t.profit || 0));
       }
     }
 

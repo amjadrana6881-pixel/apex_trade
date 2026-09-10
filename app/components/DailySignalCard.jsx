@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Radio, Zap, Clock, ShieldAlert, ArrowRight, CheckCircle2, TrendingUp, X, DollarSign } from 'lucide-react';
+import { Radio, Zap, Clock, ShieldAlert, ArrowRight, CheckCircle2, TrendingUp, X, DollarSign, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 
 export default function DailySignalCard({ signal }) {
@@ -10,17 +10,56 @@ export default function DailySignalCard({ signal }) {
   const { user, token } = useAuth();
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
+  const userBal = Number(user?.wallet_balance || 0);
+  const minCap = Number(signal?.min_capital || 700);
+  const profitPct = Number(signal?.profit_percentage || 4.25);
+
+  // Initialize trade amount to user balance or default minCap
+  const [tradeAmount, setTradeAmount] = useState(minCap);
+  const [amountError, setAmountError] = useState('');
+
+  useEffect(() => {
+    if (confirmModalOpen) {
+      if (userBal > 0) {
+        setTradeAmount(Math.floor(userBal));
+      } else {
+        setTradeAmount(minCap);
+      }
+      setAmountError('');
+    }
+  }, [confirmModalOpen, userBal, minCap]);
+
   if (!signal) return null;
 
   const isBuy = signal.order_type === 'BUY';
-  const minCap = Number(signal.min_capital || 700);
-  const profitPct = Number(signal.profit_percentage || 4.25);
-  const estProfit = ((minCap * profitPct) / 100).toFixed(2);
-  const estTotal = (minCap + Number(estProfit)).toFixed(2);
+  const numericAmount = Number(tradeAmount) || 0;
+  const estProfit = ((numericAmount * profitPct) / 100).toFixed(2);
+  const estTotal = (numericAmount + Number(estProfit)).toFixed(2);
+
+  const handleSetPercentAmount = (pct) => {
+    if (userBal <= 0) {
+      setTradeAmount(10);
+      return;
+    }
+    const calc = Math.floor((userBal * pct) / 100);
+    setTradeAmount(Math.max(1, calc));
+    setAmountError('');
+  };
 
   const handleProceedToTrading = () => {
+    if (numericAmount <= 0) {
+      setAmountError('Please enter a valid trade amount.');
+      return;
+    }
+    if (userBal < numericAmount) {
+      setAmountError(`Insufficient wallet balance. You have $${userBal.toFixed(2)} available.`);
+      return;
+    }
+
     setConfirmModalOpen(false);
-    router.push(`/trading?pair=${signal.instrument}&type=${signal.order_type}&duration=${signal.duration_seconds}&amount=${minCap}&autoConfirm=true`);
+    router.push(
+      `/trading?pair=${signal.instrument.replace('/', '')}&type=${signal.order_type}&duration=${signal.duration_seconds || 900}&amount=${numericAmount}&autoConfirm=true`
+    );
   };
 
   return (
@@ -60,8 +99,8 @@ export default function DailySignalCard({ signal }) {
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/15">
-                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Min Capital</p>
-                <p className="text-sm sm:text-base font-extrabold font-mono text-white mt-0.5">${minCap.toFixed(0)}</p>
+                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Expected Return</p>
+                <p className="text-sm sm:text-base font-extrabold font-mono text-emerald-300 mt-0.5">+{profitPct}%</p>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/15">
@@ -94,23 +133,90 @@ export default function DailySignalCard({ signal }) {
         </div>
       </div>
 
-      {/* TRADE CONFIRMATION MODAL */}
+      {/* TRADE CONFIRMATION & CAPITAL ENTRY MODAL */}
       {confirmModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5">
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4">
             <button
               onClick={() => setConfirmModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div>
               <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase">
-                ORDER CONFIRMATION
+                ORDER CAPITAL & CONFIRMATION
               </span>
               <h3 className="text-xl font-black text-slate-900 mt-1">Execute Daily Signal Trade</h3>
-              <p className="text-xs text-slate-500">Please review contract details before launching live execution.</p>
+              <p className="text-xs text-slate-500">Choose how much capital you want to trade with.</p>
+            </div>
+
+            {/* Error Message */}
+            {amountError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{amountError}</span>
+              </div>
+            )}
+
+            {/* Amount Selection Input */}
+            <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Trade Amount (USD)
+                </label>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <span>Balance:</span>
+                  <span className="font-mono font-extrabold text-emerald-600">${userBal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Amount Input with MAX button */}
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 text-slate-400 font-bold text-base pointer-events-none">
+                  $
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={userBal}
+                  step="any"
+                  value={tradeAmount}
+                  onChange={(e) => {
+                    setTradeAmount(e.target.value);
+                    setAmountError('');
+                  }}
+                  placeholder="Enter amount"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-20 py-2.5 text-base font-black font-mono text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSetPercentAmount(100)}
+                  className="absolute right-2 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-colors cursor-pointer shadow-xs"
+                >
+                  MAX
+                </button>
+              </div>
+
+              {/* Quick Percent Buttons */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: '25%', pct: 25 },
+                  { label: '50%', pct: 50 },
+                  { label: '75%', pct: 75 },
+                  { label: '🔥 100%', pct: 100 }
+                ].map((item) => (
+                  <button
+                    key={item.pct}
+                    type="button"
+                    onClick={() => handleSetPercentAmount(item.pct)}
+                    className="py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors text-center cursor-pointer shadow-2xs"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Trade Details Summary Box */}
@@ -122,14 +228,14 @@ export default function DailySignalCard({ signal }) {
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
                 <span className="text-slate-500 font-bold">Order Type:</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${isBuy ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${isBuy ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                   {signal.order_type} MARKET
                 </span>
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
                 <span className="text-slate-500 font-bold">Contract Capital:</span>
-                <span className="font-mono font-black text-slate-900 text-sm">${minCap.toFixed(2)}</span>
+                <span className="font-mono font-black text-slate-900 text-sm">${numericAmount.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
@@ -168,7 +274,7 @@ export default function DailySignalCard({ signal }) {
                 className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Zap className="w-4 h-4" />
-                <span>Confirm & Place</span>
+                <span>Confirm & Place (${numericAmount.toFixed(0)})</span>
               </button>
             </div>
           </div>
