@@ -311,21 +311,9 @@ export default function DailySignalCard({ signal }) {
                 <span className="font-mono font-black text-slate-900 text-sm">${numericAmount.toFixed(2)}</span>
               </div>
 
-              <div className="flex justify-between items-center py-1 border-b border-slate-200">
+              <div className="flex justify-between items-center pt-1">
                 <span className="text-slate-500 font-bold">Duration / Expiry:</span>
                 <span className="font-bold text-slate-800">{Math.floor((signal.duration_seconds || 180) / 60)} Minutes ({signal.duration_seconds || 180}s)</span>
-              </div>
-
-              <div className="flex justify-between items-center py-1 border-b border-slate-200">
-                <span className="text-slate-500 font-bold">Expected Net Return:</span>
-                <span className={`font-mono font-black ${hasVipBoost ? 'text-amber-600' : 'text-emerald-600'}`}>
-                  +${estProfit} (+{effectiveProfitPct}%)
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center pt-1 text-slate-900 font-black">
-                <span>Total Payout If Won:</span>
-                <span className="font-mono text-base text-blue-600">${estTotal}</span>
               </div>
             </div>
 

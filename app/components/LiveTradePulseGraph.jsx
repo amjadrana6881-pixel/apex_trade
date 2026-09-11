@@ -143,9 +143,11 @@ export default function LiveTradePulseGraph({ trade, countdown }) {
         </div>
 
         <div className="text-right">
-          <span className="text-slate-400 block text-[10px]">Est. Return</span>
-          <span className={`font-mono font-black text-xs ${inProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {inProfit ? `+$${((amount * payoutRate) / 100).toFixed(2)}` : `-$${Number(amount).toFixed(2)}`}
+          <span className="text-slate-400 block text-[10px]">
+            {inProfit ? 'Est. Profit' : 'Floating Risk (3-5%)'}
+          </span>
+          <span className={`font-mono font-black text-xs ${inProfit ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {inProfit ? `+$${((amount * payoutRate) / 100).toFixed(2)}` : `-$${((amount * 0.04)).toFixed(2)} (Cap: +$${(amount * 0.96).toFixed(2)})`}
           </span>
         </div>
       </div>

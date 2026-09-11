@@ -87,6 +87,7 @@ export default function AdminDashboardPage() {
     duration_seconds: 180,
     profit_percentage: 5.00,
     investment_profit_percentage: 8.50,
+    loss_percentage: 4.00,
     outcome: 'WIN',
     status: 'ACTIVE',
     disclaimer: 'Disclaimer: Forex and CFD trading involve risk. Follow official signal parameters. Unscheduled trades are subject to 100% loss.'
@@ -1560,19 +1561,46 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">Standard User Yield (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={newSignal.profit_percentage}
-                      onChange={(e) => setNewSignal({ ...newSignal, profit_percentage: Number(e.target.value) })}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                    />
+                    <label className="block text-xs font-bold text-slate-400 mb-1">Signal Outcome Strategy</label>
+                    <select
+                      value={newSignal.outcome}
+                      onChange={(e) => setNewSignal({ ...newSignal, outcome: e.target.value })}
+                      className={`w-full bg-slate-800 border ${newSignal.outcome === 'LOSS' ? 'border-rose-500/60 text-rose-300' : 'border-emerald-500/60 text-emerald-300'} rounded-xl px-3 py-2 text-xs font-bold`}
+                    >
+                      <option value="WIN">🟢 WIN (Guaranteed Profit)</option>
+                      <option value="LOSS">🔴 LOSS (Planned Market Loss Day)</option>
+                    </select>
                   </div>
 
+                  {newSignal.outcome === 'LOSS' ? (
+                    <div>
+                      <label className="block text-xs font-bold text-rose-400 mb-1">⚠️ Planned Loss Rate (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={newSignal.loss_percentage}
+                        onChange={(e) => setNewSignal({ ...newSignal, loss_percentage: Number(e.target.value) })}
+                        placeholder="e.g. 3.50"
+                        className="w-full bg-slate-800 border border-rose-500/50 rounded-xl px-3 py-2 text-xs text-rose-300 font-bold"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">Standard User Yield (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={newSignal.profit_percentage}
+                        onChange={(e) => setNewSignal({ ...newSignal, profit_percentage: Number(e.target.value) })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                      />
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-xs font-bold text-amber-400 mb-1">🌟 VIP Staking Plan Yield (%)</label>
+                    <label className="block text-xs font-bold text-amber-400 mb-1">🌟 VIP Staking Yield (%)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1617,8 +1645,8 @@ export default function AdminDashboardPage() {
                         <th className="py-3 px-3">Type</th>
                         <th className="py-3 px-3">PST Time</th>
                         <th className="py-3 px-3">Duration</th>
-                        <th className="py-3 px-3">Standard Yield</th>
-                        <th className="py-3 px-3">VIP Staking Yield</th>
+                        <th className="py-3 px-3">Outcome / Yield</th>
+                        <th className="py-3 px-3">VIP Staking</th>
                         <th className="py-3 px-3">Status</th>
                         <th className="py-3 px-3 text-right">Action</th>
                       </tr>
@@ -1631,7 +1659,17 @@ export default function AdminDashboardPage() {
                           <td className="py-3 px-3 font-extrabold">{s.order_type}</td>
                           <td className="py-3 px-3 text-slate-400">{s.execution_time_pst}</td>
                           <td className="py-3 px-3 font-mono">{s.duration_seconds}s</td>
-                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">+{s.profit_percentage}%</td>
+                          <td className="py-3 px-3">
+                            {s.outcome === 'LOSS' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                LOSS (-{s.loss_percentage || 4.00}%)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                WIN (+{s.profit_percentage}%)
+                              </span>
+                            )}
+                          </td>
                           <td className="py-3 px-3 font-mono font-bold text-amber-400">+{s.investment_profit_percentage || (s.profit_percentage * 1.6).toFixed(2)}%</td>
                           <td className="py-3 px-3">
                             <button
@@ -3206,16 +3244,43 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">Standard Yield (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={editingSignal.profit_percentage || 5}
-                    onChange={(e) => setEditingSignal({ ...editingSignal, profit_percentage: Number(e.target.value) })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                  />
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Outcome Strategy</label>
+                  <select
+                    value={editingSignal.outcome || 'WIN'}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, outcome: e.target.value })}
+                    className={`w-full bg-slate-800 border ${editingSignal.outcome === 'LOSS' ? 'border-rose-500/60 text-rose-300' : 'border-emerald-500/60 text-emerald-300'} rounded-xl px-3 py-2 text-xs font-bold`}
+                  >
+                    <option value="WIN">🟢 WIN (Guaranteed Profit)</option>
+                    <option value="LOSS">🔴 LOSS (Planned Market Loss)</option>
+                  </select>
                 </div>
+
+                {editingSignal.outcome === 'LOSS' ? (
+                  <div>
+                    <label className="block text-xs font-bold text-rose-400 mb-1">⚠️ Planned Loss Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editingSignal.loss_percentage || 4.00}
+                      onChange={(e) => setEditingSignal({ ...editingSignal, loss_percentage: Number(e.target.value) })}
+                      className="w-full bg-slate-800 border border-rose-500/50 rounded-xl px-3 py-2 text-xs text-rose-300 font-bold"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">Standard Yield (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editingSignal.profit_percentage || 5}
+                      onChange={(e) => setEditingSignal({ ...editingSignal, profit_percentage: Number(e.target.value) })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-amber-400 mb-1">VIP Staking Yield (%)</label>
                   <input

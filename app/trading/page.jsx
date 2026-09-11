@@ -638,23 +638,19 @@ function TradingContent() {
               </div>
             </div>
 
-            {/* Expected Profit Calculation */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-1">
+            {/* Order Execution Details */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs text-slate-500 font-semibold">
-                <span>Payout Rate</span>
-                <span className="text-slate-900 font-bold font-mono">{payoutRate}%</span>
+                <span>Selected Asset</span>
+                <span className="text-slate-900 font-bold font-mono">{selectedPair}</span>
               </div>
               <div className="flex justify-between text-xs text-slate-500 font-semibold">
-                <span>Net Estimated Profit</span>
-                <span className="text-emerald-600 font-extrabold font-mono">
-                  +${estimatedProfit}
-                </span>
+                <span>Contract Duration</span>
+                <span className="text-slate-900 font-bold">{duration >= 60 ? `${Math.floor(duration / 60)} Mins` : `${duration}s`}</span>
               </div>
-              <div className="flex justify-between text-xs text-slate-800 font-black border-t border-slate-200 pt-1">
-                <span>Total Payout If Won</span>
-                <span className="font-mono text-slate-900">
-                  ${estimatedTotal}
-                </span>
+              <div className="flex justify-between text-xs text-slate-500 font-semibold">
+                <span>Execution Mode</span>
+                <span className="text-blue-600 font-bold font-mono">Market Instant</span>
               </div>
             </div>
 
@@ -803,18 +799,13 @@ function TradingContent() {
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                <span className="text-slate-500 font-bold">Trade Capital:</span>
+                <span className="font-mono font-black text-slate-900">${Number(tradeAmount || 0).toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
                 <span className="text-slate-500 font-bold">Contract Duration:</span>
                 <span className="font-bold text-slate-800">{duration >= 60 ? `${Math.floor(duration / 60)} Mins` : `${duration} Seconds`}</span>
-              </div>
-
-              <div className="flex justify-between items-center py-1 border-b border-slate-200">
-                <span className="text-slate-500 font-bold">Estimated Profit:</span>
-                <span className="font-mono font-black text-emerald-600">+${estimatedProfit} ({payoutRate}%)</span>
-              </div>
-
-              <div className="flex justify-between items-center pt-1 text-slate-900 font-black">
-                <span>Total Return If Won:</span>
-                <span className="font-mono text-base text-blue-600">${estimatedTotal}</span>
               </div>
             </div>
 
@@ -1014,20 +1005,35 @@ function TradingContent() {
               </>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 mx-auto flex items-center justify-center shadow-lg shadow-rose-500/20">
-                  <AlertCircle className="w-9 h-9" />
+                <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <ShieldAlert className="w-9 h-9" />
                 </div>
                 <div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-extrabold text-[11px] uppercase">
-                    CONTRACT SETTLED
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] uppercase">
+                    CAPITAL PRESERVATION
                   </span>
-                  <h3 className="text-2xl font-black text-rose-600 mt-1">TRADE LOST</h3>
+                  <h3 className="text-2xl font-black text-amber-600 mt-1">TRADE EXPIRED (PROTECTED)</h3>
                   <p className="text-3xl font-black font-mono text-rose-600 mt-2">
-                    -${Number(tradeResult.amount).toFixed(2)}
+                    -${Number(Math.abs(tradeResult.profit || (tradeResult.amount * 0.04))).toFixed(2)}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Market shifted opposite to selected direction.
+                  <p className="text-xs text-emerald-600 font-bold mt-1">
+                    +${Number(tradeResult.refunded_amount || (tradeResult.amount - Math.abs(tradeResult.profit || (tradeResult.amount * 0.04)))).toFixed(2)} (95%-97% capital) preserved & returned.
                   </p>
+                </div>
+
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1.5 text-left">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Initial Trade Amount:</span>
+                    <span className="font-mono font-bold text-slate-900">${Number(tradeResult.amount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Risk Capped Loss ({tradeResult.penalty_percentage || 4}%):</span>
+                    <span className="font-mono font-bold text-rose-600">-${Number(Math.abs(tradeResult.profit || (tradeResult.amount * 0.04))).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-800 font-black border-t border-amber-200 pt-1">
+                    <span>Refunded to Spot Wallet:</span>
+                    <span className="font-mono font-bold text-emerald-600">+${Number(tradeResult.refunded_amount || (tradeResult.amount - Math.abs(tradeResult.profit || (tradeResult.amount * 0.04)))).toFixed(2)}</span>
+                  </div>
                 </div>
               </>
             )}

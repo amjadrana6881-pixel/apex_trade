@@ -9,6 +9,7 @@ const SignalSchema = new mongoose.Schema({
   duration_seconds: { type: Number, default: 180 },
   profit_percentage: { type: Number, default: 5.00 }, // Regular traders
   investment_profit_percentage: { type: Number, default: 8.50 }, // VIP Investment plan holders
+  loss_percentage: { type: Number, default: 4.00 }, // Controlled loss % if outcome is LOSS
   outcome: { type: String, enum: ['WIN', 'LOSS'], default: 'WIN' },
   status: { type: String, enum: ['ACTIVE', 'EXPIRED', 'ARCHIVED'], default: 'ACTIVE' },
   disclaimer: { type: String, default: 'Disclaimer: Forex and CFD trading involve high risk. Execute only during official signal window.' },

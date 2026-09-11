@@ -18,6 +18,7 @@ export async function POST(request) {
       duration_seconds,
       profit_percentage,
       investment_profit_percentage,
+      loss_percentage,
       outcome,
       status,
       disclaimer
@@ -37,6 +38,7 @@ export async function POST(request) {
     const today = new Date().toLocaleDateString('en-GB');
     const stdPct = Number(profit_percentage) || 5.00;
     const vipPct = Number(investment_profit_percentage) || Number((stdPct * 1.6).toFixed(2)) || 8.50;
+    const lossPct = Number(loss_percentage) || 4.00;
 
     const newSignal = await Signal.create({
       title: title || `${today}, Day Trading Signal`,
@@ -47,17 +49,18 @@ export async function POST(request) {
       duration_seconds: Number(duration_seconds) || 180,
       profit_percentage: stdPct,
       investment_profit_percentage: vipPct,
+      loss_percentage: lossPct,
       outcome: outcome || 'WIN',
       status: status || 'ACTIVE',
       disclaimer: disclaimer || 'Disclaimer: Forex and CFD trading involve substantial risk. Follow official signal parameters.'
     });
 
-    // Dispatch Push Notification to all users
+    // Dispatch Push Notification to all users (Professional format without revealing planned outcomes)
     if (newSignal.status === 'ACTIVE') {
       import('@/lib/fcm').then(({ sendPushToAllUsers }) => {
         sendPushToAllUsers({
           title: `📊 Official Trading Signal Published!`,
-          body: `${newSignal.instrument} ${newSignal.order_type} execution at ${newSignal.execution_time_pst}. Standard: +${newSignal.profit_percentage}% | VIP Staking: +${newSignal.investment_profit_percentage}%.`,
+          body: `${newSignal.instrument} ${newSignal.order_type} execution scheduled at ${newSignal.execution_time_pst}. Standard: +${newSignal.profit_percentage}% | VIP Staking: +${newSignal.investment_profit_percentage}%.`,
           data: {
             type: 'SIGNAL_PUBLISHED',
             signal_id: newSignal._id.toString(),
