@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import UserInvestment from '@/models/UserInvestment';
 import Transaction from '@/models/Transaction';
+import { sendPushToUser } from '@/lib/fcm';
 
 export async function GET(request) {
   const { errorResponse } = await requireAdmin(request);
@@ -92,13 +93,15 @@ export async function POST(request) {
       });
 
       // Send Push Notification
-      import('@/lib/fcm').then(({ sendPushToUser }) => {
-        sendPushToUser(user._id, {
+      try {
+        await sendPushToUser(user._id, {
           title: `💰 Yield Package Matured (+ $${profit.toFixed(2)})!`,
           body: `Your ${inv.package_name} has completed. $${profit.toFixed(2)} profit has been credited to your wallet!`,
           data: { type: 'INVESTMENT_MATURED', investment_id: inv._id.toString(), target_url: '/wallet' }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Investment mature push error:', pushErr);
+      }
 
       return NextResponse.json({
         success: true,

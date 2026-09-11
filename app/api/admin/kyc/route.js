@@ -15,7 +15,7 @@ export async function GET(request) {
         { kyc_doc: { $exists: true, $ne: '' } }
       ]
     })
-      .select('name email kyc_status kyc_doc created_at updated_at')
+      .select('name email kyc_status kyc_doc kyc_notes created_at updated_at')
       .sort({ updated_at: -1, created_at: -1 })
       .lean();
 
@@ -24,7 +24,8 @@ export async function GET(request) {
       id: u._id.toString(),
       _id: u._id.toString(),
       kyc_document_url: u.kyc_doc || '',
-      kyc_doc: u.kyc_doc || ''
+      kyc_doc: u.kyc_doc || '',
+      kyc_notes: u.kyc_notes || ''
     }));
 
     return NextResponse.json({ success: true, data: users });

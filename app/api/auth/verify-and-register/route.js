@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import OtpCode from '@/models/OtpCode';
 import { signJwtToken } from '@/lib/auth';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,6 +68,21 @@ export async function POST(request) {
     await OtpCode.deleteMany({ email: cleanEmail, type: 'REGISTER' });
 
     const token = signJwtToken({ id: newUser._id.toString(), email: cleanEmail, role: 'user' });
+
+    // Notify Admins
+    try {
+      await sendPushToAdmins({
+        title: '👤 New Trader Registered',
+        body: `${newUser.name} (${cleanEmail}) has completed registration and joined ApexTrader.`,
+        data: {
+          type: 'NEW_USER',
+          userId: newUser._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    } catch (pushErr) {
+      console.error('Registration admin push error:', pushErr);
+    }
 
     const userProfile = {
       id: newUser._id.toString(),

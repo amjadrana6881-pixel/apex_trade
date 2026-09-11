@@ -50,15 +50,17 @@ export async function POST(request) {
 
     // Notify admins via FCM Lock-screen Push
     try {
-      sendPushToAdmins({
+      await sendPushToAdmins({
         title: `💬 Support Ticket: ${user.name || 'Trader'}`,
         body: message.trim() || 'User sent an image attachment',
         data: {
           type: 'SUPPORT_CHAT',
           userId: user._id.toString()
         }
-      }).catch(e => console.error('Push error:', e));
-    } catch (pushErr) {}
+      });
+    } catch (pushErr) {
+      console.error('Push error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

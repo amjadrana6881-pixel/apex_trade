@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import Withdrawal from '@/models/Withdrawal';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
+import { sendPushToUser } from '@/lib/fcm';
 
 export async function POST(request, { params }) {
   const { errorResponse } = await requireAdmin(request);
@@ -35,8 +36,8 @@ export async function POST(request, { params }) {
       );
 
       // Notify User of approval
-      import('@/lib/fcm').then(({ sendPushToUser }) => {
-        sendPushToUser(withdrawal.user_id, {
+      try {
+        await sendPushToUser(withdrawal.user_id, {
           title: `💸 Payout Sent ($${withdrawal.net_amount.toFixed(2)})`,
           body: `Your withdrawal of $${withdrawal.net_amount.toFixed(2)} USDT has been successfully transferred to your destination wallet!`,
           data: {
@@ -45,7 +46,9 @@ export async function POST(request, { params }) {
             target_url: '/wallet'
           }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Withdrawal approve push error:', pushErr);
+      }
 
       return NextResponse.json({
         success: true,
@@ -70,8 +73,8 @@ export async function POST(request, { params }) {
       );
 
       // Notify User of rejection & refund
-      import('@/lib/fcm').then(({ sendPushToUser }) => {
-        sendPushToUser(withdrawal.user_id, {
+      try {
+        await sendPushToUser(withdrawal.user_id, {
           title: `❌ Withdrawal Rejected ($${withdrawal.amount.toFixed(2)} Refunded)`,
           body: `Your withdrawal request was rejected. $${withdrawal.amount.toFixed(2)} has been restored to your wallet. Reason: ${notes || 'Admin rejected'}`,
           data: {
@@ -80,7 +83,9 @@ export async function POST(request, { params }) {
             target_url: '/wallet'
           }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Withdrawal reject push error:', pushErr);
+      }
 
       return NextResponse.json({
         success: true,

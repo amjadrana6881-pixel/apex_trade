@@ -5,6 +5,7 @@ import User from '@/models/User';
 import InvestmentPackage from '@/models/InvestmentPackage';
 import UserInvestment from '@/models/UserInvestment';
 import Transaction from '@/models/Transaction';
+import { sendPushToUser, sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -77,18 +78,31 @@ export async function POST(request) {
       status: 'COMPLETED'
     });
 
-    // Send Push Notification to user
-    import('@/lib/fcm').then(({ sendPushToUser }) => {
-      sendPushToUser(freshUser._id, {
-        title: `🎉 ${pkg.name} Activated (+${totalRoi}% ROI)!`,
-        body: `Your $${investAmount.toFixed(2)} package will mature with +$${expectedProfit.toFixed(2)} on ${maturesAt.toLocaleDateString()}. You can continue trading freely with VIP Signal boost!`,
-        data: {
-          type: 'INVESTMENT_ACTIVATED',
-          investment_id: newInv._id.toString(),
-          target_url: '/investments'
-        }
-      });
-    }).catch(() => {});
+    // Send Push Notification to user & notify admins
+    try {
+      await Promise.allSettled([
+        sendPushToUser(freshUser._id, {
+          title: `🎉 ${pkg.name} Activated (+${totalRoi}% ROI)!`,
+          body: `Your $${investAmount.toFixed(2)} package will mature with +$${expectedProfit.toFixed(2)} on ${maturesAt.toLocaleDateString()}. You can continue trading freely with VIP Signal boost!`,
+          data: {
+            type: 'INVESTMENT_ACTIVATED',
+            investment_id: newInv._id.toString(),
+            target_url: '/investments'
+          }
+        }),
+        sendPushToAdmins({
+          title: `🚀 New Yield Staking: $${investAmount.toFixed(2)}`,
+          body: `${freshUser.name || 'Trader'} subscribed to ${pkg.name} with $${investAmount.toFixed(2)}.`,
+          data: {
+            type: 'NEW_INVESTMENT',
+            investment_id: newInv._id.toString(),
+            target_url: '/admin'
+          }
+        })
+      ]);
+    } catch (pushErr) {
+      console.error('Investment push error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

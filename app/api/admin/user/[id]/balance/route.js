@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
+import { sendPushToUser } from '@/lib/fcm';
 
 async function handleBalanceAdjustment(request, params) {
   const { errorResponse, user: adminUser } = await requireAdmin(request);
@@ -62,13 +63,15 @@ async function handleBalanceAdjustment(request, params) {
     });
 
     // Notify user via FCM Push
-    import('@/lib/fcm').then(({ sendPushToUser }) => {
-      sendPushToUser(targetUser._id, {
+    try {
+      await sendPushToUser(targetUser._id, {
         title: isAddition ? `💳 Balance Credited (+ $${numAmount.toFixed(2)})` : `💳 Balance Adjusted (- $${numAmount.toFixed(2)})`,
         body: `Your wallet balance was updated by administration. New balance: $${newBalance.toFixed(2)} USDT.`,
         data: { type: 'BALANCE_ADJUSTMENT', target_url: '/wallet' }
       });
-    }).catch(() => {});
+    } catch (pushErr) {
+      console.error('Balance adjustment push error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

@@ -34,6 +34,8 @@ export async function GET(request) {
       referred_by: targetUser.referred_by,
       phone: targetUser.phone,
       kyc_status: targetUser.kyc_status,
+      kyc_doc: targetUser.kyc_doc || '',
+      kyc_notes: targetUser.kyc_notes || '',
       status: targetUser.status,
       has_withdrawal_password: hasWithdrawalPassword,
       saved_usdt_address: targetUser.saved_usdt_address || '',

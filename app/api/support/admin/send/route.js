@@ -66,14 +66,16 @@ export async function POST(request) {
 
     // Notify user via FCM Lock-screen Push
     try {
-      sendPushToUser(userId, {
+      await sendPushToUser(userId, {
         title: '🎧 Live Support Reply',
         body: message.trim() || 'Admin sent you an image attachment.',
         data: {
           type: 'SUPPORT_CHAT'
         }
-      }).catch(e => console.error('User push error:', e));
-    } catch (pushErr) {}
+      });
+    } catch (pushErr) {
+      console.error('User push error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

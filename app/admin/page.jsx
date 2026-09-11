@@ -25,9 +25,12 @@ import {
   Clock, 
   Layers, 
   FileText, 
+  FileCheck,
   UserCheck, 
   CheckCircle2, 
   AlertTriangle, 
+  AlertCircle,
+  XCircle,
   Edit3, 
   Key, 
   Lock, 
@@ -101,6 +104,8 @@ export default function AdminDashboardPage() {
   const [deposits, setDeposits] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [receiptModalUrl, setReceiptModalUrl] = useState('');
+  const [kycRejectModalUser, setKycRejectModalUser] = useState(null);
+  const [kycRejectReason, setKycRejectReason] = useState('');
 
   // Deposit Wallets (CRYPTO ONLY)
   const [wallets, setWallets] = useState([]);
@@ -805,16 +810,18 @@ export default function AdminDashboardPage() {
     } catch (e) { console.error(e); }
   };
 
-  const handleKycAction = async (id, action) => {
+  const handleKycAction = async (id, action, notes = '') => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/kyc/${id}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action, notes })
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || `KYC ${action}`);
+        alert(data.message || `KYC status updated: ${action}`);
+        setKycRejectModalUser(null);
+        setKycRejectReason('');
         fetchKyc();
         fetchUsers();
       } else {
@@ -1037,10 +1044,11 @@ export default function AdminDashboardPage() {
   const pendingDepositsCount = deposits.filter(d => d.status === 'PENDING').length;
   const pendingWithdrawalsCount = withdrawals.filter(w => w.status === 'PENDING').length;
   const totalUnreadSupportCount = supportConversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+  const pendingKycCount = kycUsers.filter(u => u.kyc_status === 'PENDING').length;
 
   const navItems = [
     { id: 'overview', label: 'Master Overview', icon: BarChart2 },
-    { id: 'users', label: 'User Directory & Balances', icon: Users, badge: users.length > 0 ? `${users.length} Users` : null, badgeColor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
+    { id: 'users', label: 'User Directory & Balances', icon: Users },
     { id: 'signals', label: 'Daily Signals Hub', icon: Radio, badge: signals.filter(s => s.status === 'ACTIVE').length > 0 ? `${signals.filter(s => s.status === 'ACTIVE').length} Active` : null, badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
     { id: 'trades', label: 'Option Trades', icon: TrendingUp },
     { id: 'deposits', label: 'Crypto Deposits', icon: ArrowDownLeft, badge: pendingDepositsCount > 0 ? `${pendingDepositsCount} PENDING` : null, badgeColor: 'bg-emerald-500 text-white animate-pulse' },
@@ -1048,7 +1056,7 @@ export default function AdminDashboardPage() {
     { id: 'wallets', label: 'Depository Wallets', icon: Wallet },
     { id: 'packages', label: 'Yield Staking Plans', icon: Layers },
     { id: 'announcements', label: 'System News & Alerts', icon: Bell },
-    { id: 'kyc', label: 'KYC Document Verification', icon: UserCheck, badge: kycUsers.length > 0 ? `${kycUsers.length} Submissions` : null, badgeColor: 'bg-blue-500/20 text-blue-300' },
+    { id: 'kyc', label: 'KYC Document Verification', icon: UserCheck, badge: pendingKycCount > 0 ? `${pendingKycCount} PENDING` : null, badgeColor: 'bg-amber-500 text-white animate-pulse shadow-md shadow-amber-500/20' },
     { id: 'support', label: 'Live Chat Center', icon: Headphones, badge: totalUnreadSupportCount > 0 ? `${totalUnreadSupportCount} NEW` : null, badgeColor: 'bg-amber-500 text-white animate-pulse shadow-md shadow-amber-500/20' },
     { id: 'settings', label: 'Platform Controls', icon: Settings },
   ];
@@ -1719,76 +1727,217 @@ export default function AdminDashboardPage() {
 
           {/* TAB 4: DEPOSITS */}
           {tab === 'deposits' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-base font-extrabold text-white">Crypto Deposit Requests</h3>
-                <span className="text-xs text-slate-400 font-bold">Total: {deposits.length} Records</span>
+                <div>
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
+                    <span>Crypto Deposit Requests</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Review blockchain deposits, verify payment receipts, and credit user wallets.</p>
+                </div>
+                <span className="text-xs text-slate-400 font-bold bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700/60">
+                  Total: {deposits.length} ({deposits.filter(d => d.status === 'PENDING').length} Pending)
+                </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-                      <th className="py-3 px-3">User</th>
-                      <th className="py-3 px-3">Amount</th>
-                      <th className="py-3 px-3">Network</th>
-                      <th className="py-3 px-3">Blockchain TXID</th>
-                      <th className="py-3 px-3">Proof</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+              {deposits.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 font-medium bg-slate-950/40 rounded-2xl border border-slate-800/60">
+                  No crypto deposit requests found.
+                </div>
+              ) : (
+                <>
+                  {/* MOBILE CARD VIEW */}
+                  <div className="space-y-3.5 block md:hidden">
                     {deposits.map((d) => (
-                      <tr key={d._id || d.id} className="hover:bg-slate-800/40">
-                        <td className="py-3 px-3 font-bold text-white">{d.user_name || d.user_id?.name || 'Trader'}</td>
-                        <td className="py-3 px-3 font-mono font-black text-emerald-400">${Number(d.amount).toFixed(2)}</td>
-                        <td className="py-3 px-3 font-bold text-blue-400">{d.network}</td>
-                        <td className="py-3 px-3 font-mono text-[11px] text-slate-400 max-w-[150px] truncate">{d.txid}</td>
-                        <td className="py-3 px-3">
-                          {d.receipt_url ? (
-                            <button
-                              onClick={() => setReceiptModalUrl(d.receipt_url)}
-                              className="px-2 py-1 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold"
-                            >
-                              View Image
-                            </button>
-                          ) : (
-                            <span className="text-slate-600">No Image</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                            d.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' :
-                            d.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-400' :
-                            'bg-amber-500/20 text-amber-400'
+                      <div key={d._id || d.id} className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3.5 shadow-md">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-extrabold text-white text-sm">{d.user_name || d.user_id?.name || 'Trader'}</p>
+                            <p className="font-mono text-[11px] text-slate-400">{d.user_email || d.user_id?.email || ''}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                            d.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                            d.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                            'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
                           }`}>
                             {d.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-3 text-right space-x-1.5">
-                          {d.status === 'PENDING' && (
-                            <>
-                              <button
-                                onClick={() => handleDepositAction(d._id || d.id, 'APPROVE')}
-                                className="px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs"
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase font-bold block">Deposit Amount</span>
+                            <span className="font-mono font-black text-emerald-400 text-sm">${Number(d.amount).toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase font-bold block">Network</span>
+                            <span className="font-bold text-blue-400 text-xs">{d.network || 'TRC-20'}</span>
+                          </div>
+                          <div className="col-span-2 pt-1 border-t border-slate-800/80">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold block">Blockchain TXID</span>
+                            <span className="font-mono text-[11px] text-slate-300 break-all select-all">{d.txid || 'N/A'}</span>
+                          </div>
+                        </div>
+
+                        {/* RECEIPT SCREENSHOT PREVIEW ON MOBILE */}
+                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-2">
+                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Payment Receipt Screenshot</span>
+                          {d.receipt_url ? (
+                            <div className="flex items-center gap-3">
+                              <div 
+                                onClick={() => setReceiptModalUrl(d.receipt_url)}
+                                className="w-16 h-16 rounded-xl overflow-hidden border-2 border-blue-500/40 bg-slate-950 shrink-0 cursor-pointer relative group flex items-center justify-center"
                               >
-                                Approve (Distribute 3-Tier)
-                              </button>
-                              <button
-                                onClick={() => handleDepositAction(d._id || d.id, 'REJECT')}
-                                className="px-2.5 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 font-bold text-xs"
-                              >
-                                Reject
-                              </button>
-                            </>
+                                <img 
+                                  src={d.receipt_url} 
+                                  alt="Deposit Screenshot" 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const fb = e.currentTarget.nextElementSibling;
+                                    if (fb) fb.classList.remove('hidden');
+                                  }}
+                                />
+                                <div className="hidden flex-col items-center justify-center p-1 text-slate-400">
+                                  <FileText className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Eye className="w-4 h-4 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setReceiptModalUrl(d.receipt_url)}
+                                  className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View Full Screenshot
+                                </button>
+                                <p className="text-[10px] text-slate-400 text-center">Tap to zoom receipt</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="py-2.5 px-3 rounded-xl bg-slate-800/60 text-slate-500 text-xs text-center italic">
+                              No image attached by user
+                            </div>
                           )}
-                        </td>
-                      </tr>
+                        </div>
+
+                        {/* ACTION BUTTONS */}
+                        {d.status === 'PENDING' && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={() => handleDepositAction(d._id || d.id, 'APPROVE')}
+                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                            >
+                              Approve & Credit
+                            </button>
+                            <button
+                              onClick={() => handleDepositAction(d._id || d.id, 'REJECT')}
+                              className="flex-1 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="overflow-x-auto hidden md:block">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                          <th className="py-3 px-3">User</th>
+                          <th className="py-3 px-3">Amount</th>
+                          <th className="py-3 px-3">Network</th>
+                          <th className="py-3 px-3">Blockchain TXID</th>
+                          <th className="py-3 px-3">Receipt Proof</th>
+                          <th className="py-3 px-3">Status</th>
+                          <th className="py-3 px-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {deposits.map((d) => (
+                          <tr key={d._id || d.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3 px-3">
+                              <p className="font-bold text-white">{d.user_name || d.user_id?.name || 'Trader'}</p>
+                              <p className="font-mono text-[10px] text-slate-400">{d.user_email || d.user_id?.email || ''}</p>
+                            </td>
+                            <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">${Number(d.amount).toFixed(2)}</td>
+                            <td className="py-3 px-3 font-bold text-blue-400">{d.network}</td>
+                            <td className="py-3 px-3 font-mono text-[11px] text-slate-300 max-w-[160px] truncate" title={d.txid}>
+                              {d.txid || 'N/A'}
+                            </td>
+                            <td className="py-3 px-3">
+                              {d.receipt_url ? (
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    onClick={() => setReceiptModalUrl(d.receipt_url)}
+                                    className="w-10 h-10 rounded-lg overflow-hidden border border-blue-500/40 bg-slate-950 shrink-0 cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
+                                    title="Click to view screenshot"
+                                  >
+                                    <img 
+                                      src={d.receipt_url} 
+                                      alt="Receipt" 
+                                      className="w-full h-full object-cover" 
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        const fb = e.currentTarget.nextElementSibling;
+                                        if (fb) fb.classList.remove('hidden');
+                                      }}
+                                    />
+                                    <div className="hidden">
+                                      <FileText className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => setReceiptModalUrl(d.receipt_url)}
+                                    className="px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    <Eye className="w-3 h-3" /> View
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic text-[11px]">No Image</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                                d.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                                d.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                                'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                              }`}>
+                                {d.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right space-x-1.5">
+                              {d.status === 'PENDING' && (
+                                <>
+                                  <button
+                                    onClick={() => handleDepositAction(d._id || d.id, 'APPROVE')}
+                                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm transition-all cursor-pointer"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleDepositAction(d._id || d.id, 'REJECT')}
+                                    className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -2489,96 +2638,237 @@ export default function AdminDashboardPage() {
 
           {/* TAB 8: KYC */}
           {tab === 'kyc' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-base font-extrabold text-white">KYC Identity Verification Center</h3>
+                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-blue-400" />
+                    <span>KYC Identity Verification Center</span>
+                  </h3>
                   <p className="text-xs text-slate-400">Review trader national ID cards, passports, and verification status.</p>
                 </div>
-                <button
-                  onClick={() => fetchKyc()}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-bold bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700/60 hidden sm:inline">
+                    {kycUsers.filter(u => u.kyc_status === 'PENDING').length} Pending Review
+                  </span>
+                  <button
+                    onClick={() => fetchKyc()}
+                    className="p-2 sm:px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Refresh</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-                      <th className="py-3 px-3">Trader Name</th>
-                      <th className="py-3 px-3">Email</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3">Document</th>
-                      <th className="py-3 px-3 text-right">Verification Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {kycUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="py-8 text-center text-slate-500 font-medium">
-                          No KYC verification submissions found.
-                        </td>
-                      </tr>
-                    ) : (
-                      kycUsers.map((u) => (
-                        <tr key={u._id || u.id} className="hover:bg-slate-800/40">
-                          <td className="py-3 px-3 font-bold text-white">{u.name}</td>
-                          <td className="py-3 px-3 font-mono text-slate-400">{u.email}</td>
-                          <td className="py-3 px-3">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
-                              u.kyc_status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                              u.kyc_status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                              u.kyc_status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-                              'bg-slate-700/50 text-slate-400 border-slate-700'
-                            }`}>
-                              {u.kyc_status || 'UNVERIFIED'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3">
-                            {(u.kyc_doc || u.kyc_document_url) ? (
-                              <button
+              {kycUsers.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 font-medium bg-slate-950/40 rounded-2xl border border-slate-800/60">
+                  No KYC verification submissions found.
+                </div>
+              ) : (
+                <>
+                  {/* MOBILE CARD VIEW */}
+                  <div className="space-y-3.5 block md:hidden">
+                    {kycUsers.map((u) => (
+                      <div key={u._id || u.id} className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3.5 shadow-md">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-extrabold text-white text-sm">{u.name}</p>
+                            <p className="font-mono text-[11px] text-slate-400">{u.email}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                            u.kyc_status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                            u.kyc_status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' :
+                            u.kyc_status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                            'bg-slate-700/50 text-slate-400 border-slate-700'
+                          }`}>
+                            {u.kyc_status || 'UNVERIFIED'}
+                          </span>
+                        </div>
+
+                        {u.kyc_notes && (
+                          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300 space-y-0.5">
+                            <span className="font-bold block text-rose-400">Rejection Reason:</span>
+                            <p className="leading-snug">{u.kyc_notes}</p>
+                          </div>
+                        )}
+
+                        {/* ID DOCUMENT PREVIEW */}
+                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-2">
+                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Uploaded Identity Proof</span>
+                          {(u.kyc_doc || u.kyc_document_url) ? (
+                            <div className="flex items-center gap-3">
+                              <div 
                                 onClick={() => setReceiptModalUrl(u.kyc_doc || u.kyc_document_url)}
-                                className="px-2.5 py-1 rounded-xl bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-bold transition-colors cursor-pointer"
+                                className="w-16 h-16 rounded-xl overflow-hidden border-2 border-blue-500/40 bg-slate-950 shrink-0 cursor-pointer relative group flex items-center justify-center"
                               >
-                                View ID Document
-                              </button>
-                            ) : (
-                              <span className="text-slate-500 italic">No Document</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right space-x-1.5">
-                            {u.kyc_status !== 'VERIFIED' && (
-                              <button
-                                onClick={() => handleKycAction(u._id || u.id, 'APPROVE')}
-                                className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                              >
-                                Approve KYC
-                              </button>
-                            )}
-                            {u.kyc_status !== 'REJECTED' && (
-                              <button
-                                onClick={() => handleKycAction(u._id || u.id, 'REJECT')}
-                                className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-xs hover:bg-rose-500/30 transition-colors cursor-pointer"
-                              >
-                                Reject
-                              </button>
-                            )}
+                                <img 
+                                  src={u.kyc_doc || u.kyc_document_url} 
+                                  alt="KYC ID Document" 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const fb = e.currentTarget.nextElementSibling;
+                                    if (fb) fb.classList.remove('hidden');
+                                  }}
+                                />
+                                <div className="hidden flex-col items-center justify-center p-1 text-slate-400">
+                                  <FileCheck className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Eye className="w-4 h-4 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setReceiptModalUrl(u.kyc_doc || u.kyc_document_url)}
+                                  className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View ID Document
+                                </button>
+                                <p className="text-[10px] text-slate-400 text-center">Tap to inspect full photo</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="py-2.5 px-3 rounded-xl bg-slate-800/60 text-slate-500 text-xs text-center italic">
+                              No document uploaded
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ACTION BUTTONS */}
+                        <div className="flex items-center gap-2 pt-1">
+                          {u.kyc_status !== 'VERIFIED' && (
                             <button
-                              onClick={() => handleKycAction(u._id || u.id, 'RESET')}
-                              className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
-                              title="Reset status back to unverified"
+                              onClick={() => handleKycAction(u._id || u.id, 'APPROVE')}
+                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
                             >
-                              Reset
+                              Approve KYC
                             </button>
-                          </td>
+                          )}
+                          {u.kyc_status !== 'REJECTED' && (
+                            <button
+                              onClick={() => {
+                                setKycRejectModalUser(u);
+                                setKycRejectReason('');
+                              }}
+                              className="flex-1 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all cursor-pointer"
+                            >
+                              Reject (With Note)
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleKycAction(u._id || u.id, 'RESET')}
+                            className="px-3 py-2.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+                            title="Reset status back to unverified"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="overflow-x-auto hidden md:block">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                          <th className="py-3 px-3">Trader Name</th>
+                          <th className="py-3 px-3">Email</th>
+                          <th className="py-3 px-3">Status & Notes</th>
+                          <th className="py-3 px-3">ID Document</th>
+                          <th className="py-3 px-3 text-right">Verification Action</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {kycUsers.map((u) => (
+                          <tr key={u._id || u.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3 px-3 font-bold text-white">{u.name}</td>
+                            <td className="py-3 px-3 font-mono text-slate-400">{u.email}</td>
+                            <td className="py-3 px-3">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border inline-block ${
+                                u.kyc_status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                                u.kyc_status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' :
+                                u.kyc_status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                                'bg-slate-700/50 text-slate-400 border-slate-700'
+                              }`}>
+                                {u.kyc_status || 'UNVERIFIED'}
+                              </span>
+                              {u.kyc_notes && (
+                                <p className="text-[10px] text-rose-400 mt-1 max-w-[200px] leading-tight line-clamp-2" title={u.kyc_notes}>
+                                  Note: {u.kyc_notes}
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              {(u.kyc_doc || u.kyc_document_url) ? (
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    onClick={() => setReceiptModalUrl(u.kyc_doc || u.kyc_document_url)}
+                                    className="w-10 h-10 rounded-lg overflow-hidden border border-blue-500/40 bg-slate-950 shrink-0 cursor-pointer hover:scale-105 transition-transform flex items-center justify-center"
+                                    title="Click to view full ID document"
+                                  >
+                                    <img 
+                                      src={u.kyc_doc || u.kyc_document_url} 
+                                      alt="ID Document" 
+                                      className="w-full h-full object-cover" 
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        const fb = e.currentTarget.nextElementSibling;
+                                        if (fb) fb.classList.remove('hidden');
+                                      }}
+                                    />
+                                    <div className="hidden">
+                                      <FileCheck className="w-5 h-5 text-blue-400" />
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => setReceiptModalUrl(u.kyc_doc || u.kyc_document_url)}
+                                    className="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3 h-3" /> View ID
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic text-[11px]">No Document</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-right space-x-1.5">
+                              {u.kyc_status !== 'VERIFIED' && (
+                                <button
+                                  onClick={() => handleKycAction(u._id || u.id, 'APPROVE')}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm transition-all cursor-pointer"
+                                >
+                                  Approve KYC
+                                </button>
+                              )}
+                              {u.kyc_status !== 'REJECTED' && (
+                                <button
+                                  onClick={() => {
+                                    setKycRejectModalUser(u);
+                                    setKycRejectReason('');
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-xs hover:bg-rose-500/30 border border-rose-500/30 transition-colors cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleKycAction(u._id || u.id, 'RESET')}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+                                title="Reset status back to unverified"
+                              >
+                                Reset
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -2922,16 +3212,143 @@ export default function AdminDashboardPage() {
       {receiptModalUrl && (
         <div 
           onClick={() => setReceiptModalUrl('')}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md animate-in fade-in"
         >
-          <div className="relative max-w-2xl w-full max-h-[90vh] flex flex-col items-center">
-            <button
-              onClick={() => setReceiptModalUrl('')}
-              className="absolute -top-10 right-0 p-2 text-white hover:text-slate-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <img src={receiptModalUrl} alt="Uploaded Proof" className="max-h-[85vh] w-auto rounded-2xl shadow-2xl object-contain" />
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl w-full max-h-[92vh] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col p-4 sm:p-6 shadow-2xl space-y-3"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-black text-white uppercase tracking-wider">Uploaded Screenshot / Document Proof</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={receiptModalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-bold transition-colors"
+                >
+                  Open Original
+                </a>
+                <button
+                  onClick={() => setReceiptModalUrl('')}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="w-full max-h-[74vh] overflow-auto flex items-center justify-center bg-slate-950/80 rounded-2xl p-2 border border-slate-800/80">
+              <img 
+                src={receiptModalUrl} 
+                alt="Uploaded Proof" 
+                className="max-h-[70vh] w-auto max-w-full rounded-xl shadow-2xl object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fb = e.currentTarget.nextSibling;
+                  if (fb) fb.style.display = 'flex';
+                }}
+              />
+              <div className="hidden flex-col items-center justify-center py-16 text-slate-400 space-y-2">
+                <AlertCircle className="w-8 h-8 text-amber-400" />
+                <p className="text-xs font-bold text-white">Image file could not be displayed directly</p>
+                <a href={receiptModalUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 underline">
+                  Click here to open or download attachment
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC REJECTION NOTE MODAL */}
+      {kycRejectModalUser && (
+        <div 
+          onClick={() => { setKycRejectModalUser(null); setKycRejectReason(''); }}
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-5 shadow-2xl"
+          >
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  <X className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">Reject KYC Verification</h3>
+                  <p className="text-[11px] text-slate-400">{kycRejectModalUser.name} ({kycRejectModalUser.email})</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => { setKycRejectModalUser(null); setKycRejectReason(''); }}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-300">
+                Rejection Reason / Note to Trader
+              </label>
+              <p className="text-[11px] text-slate-400 leading-normal">
+                This reason will be visible on the trader's profile and delivered via mobile push notification.
+              </p>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  'ID photo is blurry / unreadable',
+                  'Name on ID does not match account',
+                  'Document is expired',
+                  'Back side of CNIC / ID is missing',
+                  'Corners of ID document are cut off'
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setKycRejectReason(preset)}
+                    className={`text-[10px] px-2.5 py-1 rounded-lg font-bold border transition-colors cursor-pointer ${
+                      kycRejectReason === preset
+                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={3}
+                value={kycRejectReason}
+                onChange={(e) => setKycRejectReason(e.target.value)}
+                placeholder="e.g., CNIC photo is blurry. Please take a clear picture in good lighting showing all 4 corners and re-upload."
+                className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-3.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => { setKycRejectModalUser(null); setKycRejectReason(''); }}
+                className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleKycAction(kycRejectModalUser._id || kycRejectModalUser.id, 'REJECT', kycRejectReason)}
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs transition-colors shadow-lg shadow-rose-600/20 cursor-pointer"
+              >
+                Confirm Rejection
+              </button>
+            </div>
           </div>
         </div>
       )}

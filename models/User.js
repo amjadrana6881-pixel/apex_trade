@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema({
   phone: { type: String, default: '', trim: true },
   kyc_status: { type: String, enum: ['UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED'], default: 'UNVERIFIED' },
   kyc_doc: { type: String, default: '' },
+  kyc_notes: { type: String, default: '' },
   status: { type: String, enum: ['ACTIVE', 'BANNED'], default: 'ACTIVE' },
   trade_mode: { type: String, enum: ['AUTO', 'FORCE_WIN', 'FORCE_LOSS'], default: 'AUTO' },
   custom_win_rate: { type: Number, default: 0.50 },

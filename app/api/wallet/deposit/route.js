@@ -7,6 +7,7 @@ import SystemSetting from '@/models/SystemSetting';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -68,8 +69,8 @@ export async function POST(request) {
     });
 
     // Notify Super Admins
-    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
-      sendPushToAdmins({
+    try {
+      await sendPushToAdmins({
         title: `📥 New Deposit Request: $${amount.toFixed(2)}`,
         body: `${user.name || 'User'} deposited $${amount.toFixed(2)} (${network}). Tap to inspect and approve.`,
         data: {
@@ -78,7 +79,9 @@ export async function POST(request) {
           target_url: '/admin'
         }
       });
-    }).catch(() => {});
+    } catch (pushErr) {
+      console.error('Push error in deposit route:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

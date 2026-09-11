@@ -5,6 +5,7 @@ import Deposit from '@/models/Deposit';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import SystemSetting from '@/models/SystemSetting';
+import { sendPushToUser } from '@/lib/fcm';
 
 export async function POST(request, { params }) {
   const { errorResponse } = await requireAdmin(request);
@@ -51,8 +52,8 @@ export async function POST(request, { params }) {
       }
 
       // Notify User
-      import('@/lib/fcm').then(({ sendPushToUser }) => {
-        sendPushToUser(deposit.user_id, {
+      try {
+        await sendPushToUser(deposit.user_id, {
           title: `✅ Deposit Approved ($${deposit.amount.toFixed(2)})`,
           body: `Your deposit of $${deposit.amount.toFixed(2)} has been verified and credited to your wallet balance!`,
           data: {
@@ -61,7 +62,9 @@ export async function POST(request, { params }) {
             target_url: '/wallet'
           }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Deposit approve push error:', pushErr);
+      }
 
       return NextResponse.json({
         success: true,
@@ -78,8 +81,8 @@ export async function POST(request, { params }) {
       );
 
       // Notify User of rejection
-      import('@/lib/fcm').then(({ sendPushToUser }) => {
-        sendPushToUser(deposit.user_id, {
+      try {
+        await sendPushToUser(deposit.user_id, {
           title: `❌ Deposit Request Rejected`,
           body: `Your deposit request for $${deposit.amount.toFixed(2)} was rejected. Reason: ${notes || 'Verification failed'}`,
           data: {
@@ -88,7 +91,9 @@ export async function POST(request, { params }) {
             target_url: '/wallet'
           }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Deposit reject push error:', pushErr);
+      }
 
       return NextResponse.json({ success: true, message: 'Deposit rejected.' });
     } else {

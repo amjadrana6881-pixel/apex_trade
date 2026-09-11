@@ -372,6 +372,7 @@ export default function ProfilePage() {
               <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${
                 user?.kyc_status === 'VERIFIED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                 user?.kyc_status === 'PENDING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                user?.kyc_status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
                 'bg-slate-100 text-slate-600'
               }`}>
                 {user?.kyc_status || 'UNVERIFIED'}
@@ -381,6 +382,21 @@ export default function ProfilePage() {
             <p className="text-xs text-slate-500">
               Submit your CNIC, Passport, or Driving License to unlock verified status.
             </p>
+
+            {user?.kyc_status === 'REJECTED' && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 space-y-1.5">
+                <div className="flex items-center gap-2 font-black text-xs text-rose-700">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>KYC Verification Rejected</span>
+                </div>
+                <p className="text-xs font-medium text-rose-800 leading-relaxed">
+                  {user?.kyc_notes ? user.kyc_notes : 'Your identity documents could not be verified. Please upload clear, uncropped photos and resubmit.'}
+                </p>
+                <p className="text-[11px] text-rose-600 font-bold pt-1">
+                  👉 You can re-upload your document below to request re-verification.
+                </p>
+              </div>
+            )}
 
             {kycMsg && (
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">

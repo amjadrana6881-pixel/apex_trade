@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { requireAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
+import { sendPushToUser } from '@/lib/fcm';
 
 export async function PUT(request, { params }) {
   const { errorResponse } = await requireAdmin(request);
@@ -66,22 +67,22 @@ export async function PUT(request, { params }) {
       if (kyc_status === 'NOT_SUBMITTED') mappedKyc = 'UNVERIFIED';
       targetUser.kyc_status = mappedKyc;
 
-      if (mappedKyc === 'VERIFIED') {
-        import('@/lib/fcm').then(({ sendPushToUser }) => {
-          sendPushToUser(targetUser._id, {
+      try {
+        if (mappedKyc === 'VERIFIED') {
+          await sendPushToUser(targetUser._id, {
             title: '🎉 KYC Verification Approved!',
             body: 'Your identity verification has been approved by admin.',
             data: { type: 'KYC_STATUS', status: 'VERIFIED', target_url: '/profile' }
           });
-        }).catch(() => {});
-      } else if (mappedKyc === 'REJECTED') {
-        import('@/lib/fcm').then(({ sendPushToUser }) => {
-          sendPushToUser(targetUser._id, {
+        } else if (mappedKyc === 'REJECTED') {
+          await sendPushToUser(targetUser._id, {
             title: '⚠️ KYC Verification Update',
             body: 'Your identity verification documents were rejected. Please update them.',
             data: { type: 'KYC_STATUS', status: 'REJECTED', target_url: '/profile' }
           });
-        }).catch(() => {});
+        }
+      } catch (pushErr) {
+        console.error('Edit all KYC push error:', pushErr);
       }
     }
     if (status) targetUser.status = status;

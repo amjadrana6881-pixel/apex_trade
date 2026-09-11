@@ -7,6 +7,7 @@ import Withdrawal from '@/models/Withdrawal';
 import Transaction from '@/models/Transaction';
 import SystemSetting from '@/models/SystemSetting';
 import UserInvestment from '@/models/UserInvestment';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -118,8 +119,8 @@ export async function POST(request) {
     });
 
     // Notify Super Admins
-    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
-      sendPushToAdmins({
+    try {
+      await sendPushToAdmins({
         title: `📤 New Withdrawal Request: $${withdrawAmount.toFixed(2)}`,
         body: `${freshUser.name || 'User'} requested payout of $${netAmount.toFixed(2)} to ${destinationAddress.trim().substring(0, 10)}...`,
         data: {
@@ -128,7 +129,9 @@ export async function POST(request) {
           target_url: '/admin'
         }
       });
-    }).catch(() => {});
+    } catch (pushErr) {
+      console.error('Push error in withdraw route:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,

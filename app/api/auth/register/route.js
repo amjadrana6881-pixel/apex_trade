@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import { signJwtToken } from '@/lib/auth';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   try {
@@ -47,6 +48,21 @@ export async function POST(request) {
     });
 
     const token = signJwtToken({ id: newUser._id.toString(), email: cleanEmail, role: 'user' });
+
+    // Notify Admins
+    try {
+      await sendPushToAdmins({
+        title: '👤 New Trader Registered',
+        body: `${newUser.name} (${cleanEmail}) has registered on ApexTrader.`,
+        data: {
+          type: 'NEW_USER',
+          userId: newUser._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    } catch (pushErr) {
+      console.error('Registration admin push error:', pushErr);
+    }
 
     const userProfile = {
       id: newUser._id.toString(),

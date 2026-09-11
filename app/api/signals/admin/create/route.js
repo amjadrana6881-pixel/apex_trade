@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import Signal from '@/models/Signal';
+import { sendPushToAllUsers } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse } = await requireAdmin(request);
@@ -57,8 +58,8 @@ export async function POST(request) {
 
     // Dispatch Push Notification to all users (Professional format without revealing planned outcomes)
     if (newSignal.status === 'ACTIVE') {
-      import('@/lib/fcm').then(({ sendPushToAllUsers }) => {
-        sendPushToAllUsers({
+      try {
+        await sendPushToAllUsers({
           title: `📊 Official Trading Signal Published!`,
           body: `${newSignal.instrument} ${newSignal.order_type} execution scheduled at ${newSignal.execution_time_pst}. Standard: +${newSignal.profit_percentage}% | VIP Staking: +${newSignal.investment_profit_percentage}%.`,
           data: {
@@ -67,7 +68,9 @@ export async function POST(request) {
             target_url: '/trading'
           }
         });
-      }).catch(() => {});
+      } catch (pushErr) {
+        console.error('Signal broadcast push error:', pushErr);
+      }
     }
 
     return NextResponse.json({

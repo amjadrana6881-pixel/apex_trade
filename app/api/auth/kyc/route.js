@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -34,8 +35,8 @@ export async function POST(request) {
     await user.save();
 
     // Notify Admins
-    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
-      sendPushToAdmins({
+    try {
+      await sendPushToAdmins({
         title: `🪪 New KYC Document Submitted`,
         body: `${user.name || 'Trader'} (${user.email}) uploaded KYC documents for identity verification.`,
         data: {
@@ -44,7 +45,9 @@ export async function POST(request) {
           target_url: '/admin'
         }
       });
-    }).catch(() => {});
+    } catch (pushErr) {
+      console.error('KYC push notification error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,
