@@ -3,17 +3,20 @@ import { requireAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 
-export async function PUT(request, { params }) {
+async function handleUserStatus(request, params) {
   const { errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const rawStatus = (body.status || '').toUpperCase();
 
-    if (!['ACTIVE', 'BANNED'].includes(status)) {
-      return NextResponse.json({ success: false, message: 'Invalid status.' }, { status: 400 });
+    let status = 'ACTIVE';
+    if (rawStatus === 'BANNED' || rawStatus === 'SUSPENDED') {
+      status = 'BANNED';
+    } else {
+      status = 'ACTIVE';
     }
 
     await connectToDatabase();
@@ -28,6 +31,14 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ success: true, message: `User status updated to ${status}.` });
   } catch (err) {
     console.error('Admin user status error:', err);
-    return NextResponse.json({ success: false, message: 'Failed to update user status.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Failed to update user status.', error: err.message }, { status: 500 });
   }
+}
+
+export async function POST(request, { params }) {
+  return handleUserStatus(request, params);
+}
+
+export async function PUT(request, { params }) {
+  return handleUserStatus(request, params);
 }

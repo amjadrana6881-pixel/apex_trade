@@ -33,6 +33,19 @@ export async function POST(request) {
     if (docUrl) user.kyc_doc = docUrl;
     await user.save();
 
+    // Notify Admins
+    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
+      sendPushToAdmins({
+        title: `🪪 New KYC Document Submitted`,
+        body: `${user.name || 'Trader'} (${user.email}) uploaded KYC documents for identity verification.`,
+        data: {
+          type: 'NEW_KYC',
+          userId: user._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: 'KYC documents submitted successfully! Admin will review shortly.',

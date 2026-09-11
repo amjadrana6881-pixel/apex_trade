@@ -60,7 +60,30 @@ export async function PUT(request, { params }) {
       targetUser.investment_balance = Number(investment_balance);
     }
 
-    if (kyc_status) targetUser.kyc_status = kyc_status;
+    if (kyc_status) {
+      let mappedKyc = kyc_status;
+      if (kyc_status === 'APPROVED') mappedKyc = 'VERIFIED';
+      if (kyc_status === 'NOT_SUBMITTED') mappedKyc = 'UNVERIFIED';
+      targetUser.kyc_status = mappedKyc;
+
+      if (mappedKyc === 'VERIFIED') {
+        import('@/lib/fcm').then(({ sendPushToUser }) => {
+          sendPushToUser(targetUser._id, {
+            title: '🎉 KYC Verification Approved!',
+            body: 'Your identity verification has been approved by admin.',
+            data: { type: 'KYC_STATUS', status: 'VERIFIED', target_url: '/profile' }
+          });
+        }).catch(() => {});
+      } else if (mappedKyc === 'REJECTED') {
+        import('@/lib/fcm').then(({ sendPushToUser }) => {
+          sendPushToUser(targetUser._id, {
+            title: '⚠️ KYC Verification Update',
+            body: 'Your identity verification documents were rejected. Please update them.',
+            data: { type: 'KYC_STATUS', status: 'REJECTED', target_url: '/profile' }
+          });
+        }).catch(() => {});
+      }
+    }
     if (status) targetUser.status = status;
     if (referral_code) targetUser.referral_code = referral_code.trim().toUpperCase();
     if (referred_by !== undefined) targetUser.referred_by = referred_by.trim().toUpperCase();

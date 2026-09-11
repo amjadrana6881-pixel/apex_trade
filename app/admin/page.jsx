@@ -659,6 +659,7 @@ export default function AdminDashboardPage() {
       if (data.success) {
         alert(data.message || `KYC ${action}`);
         fetchKyc();
+        fetchUsers();
       } else {
         alert(data.message);
       }
@@ -732,26 +733,33 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!balanceModalUser) return;
     const amt = Number(balanceAdjustment);
-    if (!amt || amt <= 0) return alert('Enter valid amount');
+    if (!amt || amt <= 0) return alert('Please enter a valid amount greater than 0.');
 
     try {
-      const finalAmount = balanceActionType === 'ADD' ? amt : -amt;
       const res = await fetch(`${API_BASE}/api/admin/user/${balanceModalUser._id || balanceModalUser.id}/balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
-        body: JSON.stringify({ amount: finalAmount, reason: balanceReason || 'Admin Manual Adjustment' })
+        body: JSON.stringify({
+          amount: amt,
+          action: balanceActionType,
+          reason: balanceReason || 'Admin Manual Adjustment'
+        })
       });
       const data = await res.json();
       if (data.success) {
-        alert('User balance updated!');
+        alert(data.message || 'User balance updated successfully!');
         setBalanceModalUser(null);
         setBalanceAdjustment('');
         setBalanceReason('');
         fetchUsers();
+        fetchStats();
       } else {
-        alert(data.message);
+        alert(data.message || 'Failed to update balance.');
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      alert('Server communication error while updating user balance.');
+    }
   };
 
   const handleUpdateUserTradeMode = async (userId, tradeMode) => {
@@ -759,11 +767,13 @@ export default function AdminDashboardPage() {
       const res = await fetch(`${API_BASE}/api/admin/user/${userId}/trade-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
-        body: JSON.stringify({ tradeMode })
+        body: JSON.stringify({ trade_mode: tradeMode, tradeMode })
       });
       const data = await res.json();
       if (data.success) {
         fetchUsers();
+      } else {
+        alert(data.message || 'Failed to update trade mode.');
       }
     } catch (e) { console.error(e); }
   };
@@ -778,6 +788,8 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (data.success) {
         fetchUsers();
+      } else {
+        alert(data.message || 'Failed to update status.');
       }
     } catch (e) { console.error(e); }
   };
@@ -1299,7 +1311,7 @@ export default function AdminDashboardPage() {
                                   phone: u.phone || '',
                                   saved_usdt_address: u.saved_usdt_address || '',
                                   saved_usdt_network: u.saved_usdt_network || 'TRC-20',
-                                  kyc_status: u.kyc_status || 'NOT_SUBMITTED',
+                                  kyc_status: u.kyc_status || 'UNVERIFIED',
                                   status: u.status || 'ACTIVE',
                                   trade_mode: u.trade_mode || 'OFFICIAL_SIGNAL_PROTECTION',
                                   custom_win_rate: u.custom_win_rate || 90
@@ -2041,50 +2053,92 @@ export default function AdminDashboardPage() {
           {/* TAB 8: KYC */}
           {tab === 'kyc' && (
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h3 className="text-base font-extrabold text-white">Pending KYC Verification Documents</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-white">KYC Identity Verification Center</h3>
+                  <p className="text-xs text-slate-400">Review trader national ID cards, passports, and verification status.</p>
+                </div>
+                <button
+                  onClick={() => fetchKyc()}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                </button>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
                       <th className="py-3 px-3">Trader Name</th>
                       <th className="py-3 px-3">Email</th>
+                      <th className="py-3 px-3">Status</th>
                       <th className="py-3 px-3">Document</th>
                       <th className="py-3 px-3 text-right">Verification Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {kycUsers.map((u) => (
-                      <tr key={u._id || u.id} className="hover:bg-slate-800/40">
-                        <td className="py-3 px-3 font-bold text-white">{u.name}</td>
-                        <td className="py-3 px-3 font-mono text-slate-400">{u.email}</td>
-                        <td className="py-3 px-3">
-                          {u.kyc_document_url ? (
-                            <button
-                              onClick={() => setReceiptModalUrl(u.kyc_document_url)}
-                              className="px-2.5 py-1 rounded bg-blue-500/20 text-blue-400 text-xs font-bold"
-                            >
-                              Inspect Document
-                            </button>
-                          ) : (
-                            <span className="text-slate-600">No Document</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-right space-x-2">
-                          <button
-                            onClick={() => handleKycAction(u._id || u.id, 'APPROVE')}
-                            className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs hover:bg-emerald-500/30"
-                          >
-                            Approve KYC
-                          </button>
-                          <button
-                            onClick={() => handleKycAction(u._id || u.id, 'REJECT')}
-                            className="px-3 py-1 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-xs hover:bg-rose-500/30"
-                          >
-                            Reject
-                          </button>
+                    {kycUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-slate-500 font-medium">
+                          No KYC verification submissions found.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      kycUsers.map((u) => (
+                        <tr key={u._id || u.id} className="hover:bg-slate-800/40">
+                          <td className="py-3 px-3 font-bold text-white">{u.name}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">{u.email}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                              u.kyc_status === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                              u.kyc_status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                              u.kyc_status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                              'bg-slate-700/50 text-slate-400 border-slate-700'
+                            }`}>
+                              {u.kyc_status || 'UNVERIFIED'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {(u.kyc_doc || u.kyc_document_url) ? (
+                              <button
+                                onClick={() => setReceiptModalUrl(u.kyc_doc || u.kyc_document_url)}
+                                className="px-2.5 py-1 rounded-xl bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-bold transition-colors cursor-pointer"
+                              >
+                                View ID Document
+                              </button>
+                            ) : (
+                              <span className="text-slate-500 italic">No Document</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right space-x-1.5">
+                            {u.kyc_status !== 'VERIFIED' && (
+                              <button
+                                onClick={() => handleKycAction(u._id || u.id, 'APPROVE')}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-xs hover:bg-emerald-500/30 transition-colors cursor-pointer"
+                              >
+                                Approve KYC
+                              </button>
+                            )}
+                            {u.kyc_status !== 'REJECTED' && (
+                              <button
+                                onClick={() => handleKycAction(u._id || u.id, 'REJECT')}
+                                className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-xs hover:bg-rose-500/30 transition-colors cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleKycAction(u._id || u.id, 'RESET')}
+                              className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+                              title="Reset status back to unverified"
+                            >
+                              Reset
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -2573,14 +2627,14 @@ export default function AdminDashboardPage() {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 mb-1">KYC Status</label>
                   <select
-                    value={editingUser.kyc_status || 'NOT_SUBMITTED'}
+                    value={editingUser.kyc_status || 'UNVERIFIED'}
                     onChange={(e) => setEditingUser({ ...editingUser, kyc_status: e.target.value })}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
                   >
-                    <option value="APPROVED">APPROVED</option>
-                    <option value="PENDING">PENDING</option>
+                    <option value="VERIFIED">VERIFIED (Approved)</option>
+                    <option value="PENDING">PENDING (Under Review)</option>
                     <option value="REJECTED">REJECTED</option>
-                    <option value="NOT_SUBMITTED">NOT SUBMITTED</option>
+                    <option value="UNVERIFIED">UNVERIFIED</option>
                   </select>
                 </div>
                 <div>
@@ -2652,7 +2706,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="p-3 bg-slate-800/60 rounded-xl">
                 <span className="text-slate-400 text-[10px] uppercase font-bold block">KYC Verification</span>
-                <span className="font-bold text-white">{inspectedUser.kyc_status || 'NOT_SUBMITTED'}</span>
+                <span className="font-bold text-white">{inspectedUser.kyc_status || 'UNVERIFIED'}</span>
               </div>
               <div className="p-3 bg-slate-800/60 rounded-xl">
                 <span className="text-slate-400 text-[10px] uppercase font-bold block">Trade Outcome Mode</span>

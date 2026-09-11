@@ -9,9 +9,23 @@ export async function GET(request) {
 
   try {
     await connectToDatabase();
-    const users = await User.find({ kyc_status: { $ne: 'UNVERIFIED' } })
-      .select('name email kyc_status kyc_doc created_at')
-      .sort({ created_at: -1 });
+    const rawUsers = await User.find({
+      $or: [
+        { kyc_status: { $in: ['PENDING', 'VERIFIED', 'REJECTED'] } },
+        { kyc_doc: { $exists: true, $ne: '' } }
+      ]
+    })
+      .select('name email kyc_status kyc_doc created_at updated_at')
+      .sort({ updated_at: -1, created_at: -1 })
+      .lean();
+
+    const users = rawUsers.map(u => ({
+      ...u,
+      id: u._id.toString(),
+      _id: u._id.toString(),
+      kyc_document_url: u.kyc_doc || '',
+      kyc_doc: u.kyc_doc || ''
+    }));
 
     return NextResponse.json({ success: true, data: users });
   } catch (err) {
