@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import UserInvestment from '@/models/UserInvestment';
 import Transaction from '@/models/Transaction';
+import { sendPushToUser } from '@/lib/fcm';
 
 export async function GET(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -47,8 +48,8 @@ export async function GET(request) {
           });
 
           // Send Push Notification for payout
-          import('@/lib/fcm').then(({ sendPushToUser }) => {
-            sendPushToUser(freshUser._id, {
+          try {
+            await sendPushToUser(freshUser._id, {
               title: `💰 Investment Package Matured (+ $${profit.toFixed(2)})!`,
               body: `Your ${inv.package_name} has completed. $${profit.toFixed(2)} net profit has been added to your wallet!`,
               data: {
@@ -57,7 +58,9 @@ export async function GET(request) {
                 target_url: '/wallet'
               }
             });
-          }).catch(() => {});
+          } catch (pushErr) {
+            console.error('Investment matured push error:', pushErr);
+          }
         }
       }
     }
