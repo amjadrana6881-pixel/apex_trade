@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Radio, Zap, Clock, ShieldAlert, ArrowRight, CheckCircle2, TrendingUp, X, DollarSign, AlertCircle, Sparkles, Lock } from 'lucide-react';
+import { 
+  Zap, 
+  Clock, 
+  ArrowRight, 
+  CheckCircle2, 
+  X, 
+  AlertCircle, 
+  AlertTriangle, 
+  ShieldCheck,
+  Sparkles
+} from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 
 export default function DailySignalCard({ signal }) {
@@ -13,8 +23,6 @@ export default function DailySignalCard({ signal }) {
 
   const userBal = Number(user?.wallet_balance || 0);
   const minCap = Number(signal?.min_capital || 10);
-  const stdProfitPct = Number(signal?.profit_percentage || 5.00);
-  const vipProfitPct = Number(signal?.investment_profit_percentage || 8.50);
 
   // Check if user has active staking package
   useEffect(() => {
@@ -34,7 +42,47 @@ export default function DailySignalCard({ signal }) {
     }
   }, [token, user]);
 
-  const effectiveProfitPct = hasVipBoost ? vipProfitPct : stdProfitPct;
+  // Check if current time is within signal execution window
+  const isSignalWindowActive = () => {
+    if (!signal || signal.status !== 'ACTIVE') return false;
+    try {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const pktNow = new Date(utc + (3600000 * 5)); // PKT (UTC+5)
+
+      if (signal.scheduled_date) {
+        const year = pktNow.getFullYear();
+        const month = String(pktNow.getMonth() + 1).padStart(2, '0');
+        const day = String(pktNow.getDate()).padStart(2, '0');
+        const todayPktStr = `${year}-${month}-${day}`;
+        if (signal.scheduled_date !== todayPktStr) {
+          return false;
+        }
+      }
+
+      const currentHour = pktNow.getHours();
+      const currentMinute = pktNow.getMinutes();
+      const currentTotalMins = currentHour * 60 + currentMinute;
+
+      const clean = (signal.execution_time_pst || '').toUpperCase().replace(/\(PST\)|\(PKT\)|PST|PKT/g, '').trim();
+      const match = clean.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!match) return true;
+
+      let sigHour = parseInt(match[1], 10);
+      const sigMin = parseInt(match[2], 10);
+      const meridiem = match[3];
+      if (meridiem === 'PM' && sigHour < 12) sigHour += 12;
+      if (meridiem === 'AM' && sigHour === 12) sigHour = 0;
+
+      const signalTotalMins = sigHour * 60 + sigMin;
+      // Valid window: 10 mins before to 30 mins after signal time
+      return (currentTotalMins >= signalTotalMins - 10) && (currentTotalMins <= signalTotalMins + 30);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const isLiveWindow = isSignalWindowActive();
 
   // Initialize trade amount to user balance or default minCap
   const [tradeAmount, setTradeAmount] = useState(minCap);
@@ -55,8 +103,6 @@ export default function DailySignalCard({ signal }) {
 
   const isBuy = signal.order_type === 'BUY';
   const numericAmount = Number(tradeAmount) || 0;
-  const estProfit = ((numericAmount * effectiveProfitPct) / 100).toFixed(2);
-  const estTotal = (numericAmount + Number(estProfit)).toFixed(2);
 
   const handleSetPercentAmount = (pct) => {
     if (userBal <= 0) {
@@ -94,28 +140,22 @@ export default function DailySignalCard({ signal }) {
           <div className="space-y-3 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-[11px] sm:text-xs font-black tracking-wide text-white border border-white/30">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className={`w-2 h-2 rounded-full ${isLiveWindow ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
                 OFFICIAL DAILY TRADING SIGNAL
               </span>
-              <span className="text-xs text-blue-100 font-semibold flex items-center gap-1">
+              <span className="text-xs text-blue-100 font-bold flex items-center gap-1 bg-black/20 px-2.5 py-0.5 rounded-full">
                 <Clock className="w-3.5 h-3.5" />
                 {signal.execution_time_pst || '07:00 PM (PST)'}
               </span>
-
-              {hasVipBoost ? (
-                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black uppercase">
-                  <Sparkles className="w-3 h-3" />
-                  VIP Boost Active (+{vipProfitPct}%)
-                </span>
-              ) : (
-                <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white text-[10px] font-bold">
-                  Standard Rate (+{stdProfitPct}%)
+              {isLiveWindow && (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/80 text-white text-[10px] font-black uppercase">
+                  ● LIVE WINDOW ACTIVE
                 </span>
               )}
             </div>
 
             <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">
-              {signal.title || 'Day Trading Signal'}
+              {signal.title || 'Official Market Signal'}
             </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
@@ -125,43 +165,30 @@ export default function DailySignalCard({ signal }) {
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/15">
-                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Order Type</p>
+                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Direction</p>
                 <p className={`text-sm sm:text-base font-extrabold mt-0.5 flex items-center gap-1 ${isBuy ? 'text-emerald-300' : 'text-rose-300'}`}>
                   <span>{signal.order_type} MARKET</span>
                 </p>
               </div>
 
-              <div className={`backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border ${
-                hasVipBoost 
-                  ? 'bg-amber-400/20 border-amber-300/40 text-amber-200' 
-                  : 'bg-white/10 border-white/15 text-emerald-300'
-              }`}>
-                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">
-                  {hasVipBoost ? '🌟 VIP Yield' : 'Expected Return'}
-                </p>
-                <p className={`text-sm sm:text-base font-extrabold font-mono mt-0.5 ${hasVipBoost ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  +{effectiveProfitPct}%
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/15">
+                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Signal Time</p>
+                <p className="text-sm sm:text-base font-extrabold font-mono text-amber-300 mt-0.5">
+                  {signal.execution_time_pst || 'Scheduled'}
                 </p>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/15">
-                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Expiry / Time</p>
-                <p className="text-sm sm:text-base font-extrabold font-mono text-white mt-0.5">{Math.floor((signal.duration_seconds || 180) / 60)} Mins ({signal.duration_seconds || 180}s)</p>
+                <p className="text-[10px] sm:text-[11px] font-bold text-blue-200 uppercase">Contract Expiry</p>
+                <p className="text-sm sm:text-base font-extrabold font-mono text-white mt-0.5">
+                  {Math.floor((signal.duration_seconds || 180) / 60)} Mins
+                </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] text-blue-100/90 leading-relaxed">
-              <span>⚠️ <strong className="text-white">Risk Advisory:</strong> Trade strictly according to official signal parameters.</span>
-              {!hasVipBoost && (
-                <button
-                  type="button"
-                  onClick={() => router.push('/investments')}
-                  className="text-amber-300 font-bold hover:underline cursor-pointer flex items-center gap-1"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Stake in Yield Package to boost profit to +{vipProfitPct}% &rarr;</span>
-                </button>
-              )}
+              <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+              <span>Trade strictly at scheduled time to ensure guaranteed outcome protection.</span>
             </div>
           </div>
 
@@ -196,11 +223,19 @@ export default function DailySignalCard({ signal }) {
             </button>
 
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase">
-                ORDER CAPITAL & CONFIRMATION
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                isLiveWindow ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+              }`}>
+                {isLiveWindow ? 'SIGNAL READY TO EXECUTE' : 'UNSCHEDULED TIME WARNING'}
               </span>
-              <h3 className="text-xl font-black text-slate-900 mt-1">Execute Daily Signal Trade</h3>
-              <p className="text-xs text-slate-500">Choose how much capital you want to trade with.</p>
+              <h3 className="text-xl font-black text-slate-900 mt-1">
+                {isLiveWindow ? 'Execute Signal Trade' : 'Time Mismatch Warning'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isLiveWindow 
+                  ? 'Enter the capital amount you wish to trade.'
+                  : 'Check signal schedule before placing your order.'}
+              </p>
             </div>
 
             {/* Error Message */}
@@ -211,25 +246,19 @@ export default function DailySignalCard({ signal }) {
               </div>
             )}
 
-            {/* VIP Status Banner */}
-            {hasVipBoost ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 font-bold flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>VIP Yield Staking Active: Boosted +{vipProfitPct}% Return Applied!</span>
-              </div>
-            ) : (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 flex justify-between items-center">
-                <span>Standard Rate: +{stdProfitPct}%</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmModalOpen(false);
-                    router.push('/investments');
-                  }}
-                  className="text-blue-600 font-bold hover:underline"
-                >
-                  Unlock VIP +{vipProfitPct}% &rarr;
-                </button>
+            {/* DANGER WARNING ONLY IF OFF-TIME */}
+            {!isLiveWindow && (
+              <div className="p-3.5 bg-rose-50 border-2 border-rose-500 rounded-2xl text-left space-y-1.5">
+                <div className="flex items-center gap-2 text-rose-700 font-black text-xs sm:text-sm">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 animate-bounce" />
+                  <span>DANGER: OFF-TIME TRADE (HIGH RISK OF LOSS)</span>
+                </div>
+                <p className="text-xs text-rose-800 font-bold leading-relaxed">
+                  🛑 Aap official signal time se pehle / ghalat time par trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (loss)</strong> hoga!
+                </p>
+                <p className="text-xs text-rose-700 font-semibold">
+                  Official Signal Time: <strong className="text-rose-950 font-black">{signal.execution_time_pst || 'Scheduled Time'}</strong>. Baraye meherbani signal time par hi execute karein.
+                </p>
               </div>
             )}
 
@@ -237,7 +266,7 @@ export default function DailySignalCard({ signal }) {
             <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Trade Amount (USD)
+                  Trade Balance / Capital (USD)
                 </label>
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <span>Balance:</span>
@@ -313,13 +342,8 @@ export default function DailySignalCard({ signal }) {
 
               <div className="flex justify-between items-center pt-1">
                 <span className="text-slate-500 font-bold">Duration / Expiry:</span>
-                <span className="font-bold text-slate-800">{Math.floor((signal.duration_seconds || 180) / 60)} Minutes ({signal.duration_seconds || 180}s)</span>
+                <span className="font-bold text-slate-800">{Math.floor((signal.duration_seconds || 180) / 60)} Minutes</span>
               </div>
-            </div>
-
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Official Daily Signal: Protected Algorithmic Outcome</span>
             </div>
 
             {/* Modal Actions */}
@@ -346,3 +370,4 @@ export default function DailySignalCard({ signal }) {
     </>
   );
 }
+

@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Zap,
   ShieldAlert,
+  AlertTriangle,
   HelpCircle,
   Percent,
   Minimize2,
@@ -347,9 +348,51 @@ function TradingContent() {
     }
   };
 
-  const isMatchingActiveSignal = activeSignal && 
+  const isSignalWindowActive = () => {
+    if (!activeSignal || activeSignal.status !== 'ACTIVE') return false;
+    try {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const pktNow = new Date(utc + (3600000 * 5)); // PKT (UTC+5)
+
+      if (activeSignal.scheduled_date) {
+        const year = pktNow.getFullYear();
+        const month = String(pktNow.getMonth() + 1).padStart(2, '0');
+        const day = String(pktNow.getDate()).padStart(2, '0');
+        const todayPktStr = `${year}-${month}-${day}`;
+        if (activeSignal.scheduled_date !== todayPktStr) {
+          return false;
+        }
+      }
+
+      const currentHour = pktNow.getHours();
+      const currentMinute = pktNow.getMinutes();
+      const currentTotalMins = currentHour * 60 + currentMinute;
+
+      const clean = (activeSignal.execution_time_pst || '').toUpperCase().replace(/\(PST\)|\(PKT\)|PST|PKT/g, '').trim();
+      const match = clean.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!match) return true;
+
+      let sigHour = parseInt(match[1], 10);
+      const sigMin = parseInt(match[2], 10);
+      const meridiem = match[3];
+      if (meridiem === 'PM' && sigHour < 12) sigHour += 12;
+      if (meridiem === 'AM' && sigHour === 12) sigHour = 0;
+
+      const signalTotalMins = sigHour * 60 + sigMin;
+      // Active if within 10 mins before to 30 mins after scheduled signal time
+      return (currentTotalMins >= signalTotalMins - 10) && (currentTotalMins <= signalTotalMins + 30);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const isMatchingActiveSignal = Boolean(activeSignal && 
     activeSignal.instrument?.replace('/', '').toUpperCase() === selectedPair?.replace('/', '').toUpperCase() &&
-    activeSignal.order_type?.toUpperCase() === tradeType?.toUpperCase();
+    activeSignal.order_type?.toUpperCase() === tradeType?.toUpperCase());
+
+  const isLiveSignalWindow = isSignalWindowActive();
+  const isOfficialLiveTrade = isMatchingActiveSignal && isLiveSignalWindow;
 
   const payoutRate = isMatchingActiveSignal && (activeSignal.profit_percentage > 0 || activeSignal.investment_profit_percentage > 0)
     ? (hasVipBoost ? (activeSignal.investment_profit_percentage || (activeSignal.profit_percentage * 1.6) || 8.50) : activeSignal.profit_percentage)
@@ -654,16 +697,16 @@ function TradingContent() {
               </div>
             </div>
 
-            {/* Signal Compliance Badge */}
-            {isMatchingActiveSignal ? (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Protected Daily Signal Contract</span>
-              </div>
-            ) : (
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 leading-snug flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Unscheduled off-signal trade: Subject to standard market risk.</span>
+            {/* Signal Compliance Badge / Danger Off-Time Alert */}
+            {!isOfficialLiveTrade && (
+              <div className="p-3.5 bg-rose-50 border-2 border-rose-500 rounded-2xl text-xs space-y-1.5 animate-pulse">
+                <div className="flex items-center gap-1.5 font-black text-rose-700">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="uppercase tracking-wide text-xs">⚠️ DANGER: WRONG TIME / KHATRA</span>
+                </div>
+                <p className="text-xs text-rose-800 font-bold leading-relaxed">
+                  Aap official signal time ke baghair trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (loss)</strong> hoga! Signal Time: <strong>{activeSignal?.execution_time_pst || 'Scheduled Time'}</strong>.
+                </p>
               </div>
             )}
 
@@ -709,11 +752,19 @@ function TradingContent() {
             </button>
 
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase">
-                ORDER CONFIRMATION
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                isOfficialLiveTrade ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+              }`}>
+                {isOfficialLiveTrade ? 'OFFICIAL SIGNAL EXECUTION' : 'HIGH RISK TRADE'}
               </span>
-              <h3 className="text-xl font-black text-slate-900 mt-1">Confirm Live Option Trade</h3>
-              <p className="text-xs text-slate-500">Please review contract parameters and capital before placement.</p>
+              <h3 className="text-xl font-black text-slate-900 mt-1">
+                {isOfficialLiveTrade ? 'Enter Trade Balance' : 'Confirm Option Trade'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isOfficialLiveTrade 
+                  ? 'Enter the amount you wish to trade with for this signal.'
+                  : 'Please review contract parameters and capital before placement.'}
+              </p>
             </div>
 
             {/* Error Message */}
@@ -728,7 +779,7 @@ function TradingContent() {
             <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Trade Capital (USD)
+                  Trade Balance / Capital (USD)
                 </label>
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <span>Balance:</span>
@@ -809,15 +860,19 @@ function TradingContent() {
               </div>
             </div>
 
-            {isMatchingActiveSignal ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Protected Official Daily Signal Trade</span>
-              </div>
-            ) : (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-semibold flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Unscheduled Trade: Subject to standard market volatility.</span>
+            {/* Compliance Alert Box in Confirmation Modal: ONLY DANGER BOX WHEN OFF-TIME */}
+            {!isOfficialLiveTrade && (
+              <div className="p-4 bg-rose-50 border-2 border-rose-500 rounded-2xl text-left space-y-2">
+                <div className="flex items-center gap-2 text-rose-700 font-black text-sm">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 animate-bounce" />
+                  <span>🛑 HIGH RISK WARNING: WRONG TIME TRADE</span>
+                </div>
+                <p className="text-xs text-rose-800 font-bold leading-relaxed">
+                  Aap official signal time se pehle ya ghalat waqt par trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (market loss)</strong> hoga!
+                </p>
+                <p className="text-xs text-rose-700 font-semibold">
+                  Official Signal Time: <strong className="text-rose-950 font-black">{activeSignal?.execution_time_pst || 'Check Signals Page'}</strong>. Nuqsan se bachne ke liye trade cancel karein aur signal time par lagayein.
+                </p>
               </div>
             )}
 
