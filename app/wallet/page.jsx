@@ -60,12 +60,35 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
 
+  // Investment Lock State
+  const [investmentLock, setInvestmentLock] = useState({ isLocked: false, packageName: '', daysRemaining: 0, maturesAt: null });
+
   useEffect(() => {
     fetchDepositWallets();
     if (token) {
       fetchTransactions();
+      fetchInvestmentLock();
     }
   }, [token]);
+
+  const fetchInvestmentLock = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/investments/my`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data?.summary?.isWithdrawalLocked) {
+        setInvestmentLock({
+          isLocked: true,
+          packageName: data.data.summary.activePackageName || 'Yield Staking',
+          daysRemaining: data.data.summary.daysRemaining || 1,
+          maturesAt: data.data.summary.lockExpiresAt
+        });
+      } else {
+        setInvestmentLock({ isLocked: false, packageName: '', daysRemaining: 0, maturesAt: null });
+      }
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
     if (user?.saved_usdt_address) {
@@ -495,6 +518,29 @@ export default function WalletPage() {
             <p className="text-xs text-slate-500">Withdrawals are processed strictly in USDT with 256-bit PIN security.</p>
           </div>
 
+          {/* Active Investment Withdrawal Lock Banner */}
+          {investmentLock.isLocked && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-2 text-xs text-amber-900 shadow-xs">
+              <div className="flex items-center gap-2 font-black text-amber-800">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Withdrawals Locked: {investmentLock.packageName} Active</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                You currently have an active <strong>{investmentLock.packageName}</strong> plan maturing on <strong>{investmentLock.maturesAt ? new Date(investmentLock.maturesAt).toLocaleDateString() : 'term maturity'}</strong> ({investmentLock.daysRemaining} days remaining).
+              </p>
+              <div className="p-2.5 bg-amber-100/70 rounded-xl text-[10px] text-amber-900 font-semibold flex items-center justify-between">
+                <span>💡 Trading is 100% active with VIP Signal boost</span>
+                <button
+                  type="button"
+                  onClick={() => router.push('/investments')}
+                  className="text-blue-700 font-bold hover:underline"
+                >
+                  View Staking Status &rarr;
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Security Notice / Password Setup Alert */}
           {!user?.has_withdrawal_password && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-xs text-amber-900">
@@ -651,10 +697,16 @@ export default function WalletPage() {
 
             <button
               type="submit"
-              disabled={withdrawLoading || walletBal < Number(withdrawAmount) || !withdrawAmount}
-              className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+              disabled={withdrawLoading || investmentLock.isLocked || walletBal < Number(withdrawAmount) || !withdrawAmount}
+              className={`w-full py-4 rounded-2xl font-extrabold text-xs shadow-md transition-all cursor-pointer ${
+                investmentLock.isLocked
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 disabled:opacity-50'
+              }`}
             >
-              {withdrawLoading ? 'Authorizing Withdrawal...' : 'Confirm USDT Withdrawal'}
+              {investmentLock.isLocked
+                ? `Withdrawals Locked (${investmentLock.daysRemaining}d Left on Staking)`
+                : (withdrawLoading ? 'Authorizing Withdrawal...' : 'Confirm USDT Withdrawal')}
             </button>
           </form>
         </div>

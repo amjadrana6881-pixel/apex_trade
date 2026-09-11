@@ -6,6 +6,7 @@ import User from '@/models/User';
 import Withdrawal from '@/models/Withdrawal';
 import Transaction from '@/models/Transaction';
 import SystemSetting from '@/models/SystemSetting';
+import UserInvestment from '@/models/UserInvestment';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -27,7 +28,7 @@ export async function POST(request) {
     await connectToDatabase();
     const freshUser = await User.findById(user._id);
 
-    // Verify Withdrawal Security Password
+    // 1. Verify Withdrawal Security Password
     if (!freshUser.withdrawal_password || freshUser.withdrawal_password.trim().length === 0) {
       return NextResponse.json({
         success: false,
@@ -45,6 +46,27 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Incorrect Withdrawal Security Password. Please try again.' }, { status: 400 });
     }
 
+    // 2. CHECK ACTIVE INVESTMENT LOCK (Strict Rule: No withdrawals while an active package is running)
+    const now = new Date();
+    const activeInvestment = await UserInvestment.findOne({
+      user_id: freshUser._id,
+      status: 'ACTIVE'
+    }).sort({ matures_at: -1 });
+
+    if (activeInvestment) {
+      const matureDate = activeInvestment.matures_at || new Date(new Date(activeInvestment.created_at).getTime() + (activeInvestment.duration_days || 7) * 86400 * 1000);
+      if (now < matureDate) {
+        const msLeft = matureDate.getTime() - now.getTime();
+        const daysRemaining = Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+        return NextResponse.json({
+          success: false,
+          isInvestmentLocked: true,
+          message: `Withdrawal is temporarily locked while your ${activeInvestment.package_name} package is active (${daysRemaining} day${daysRemaining > 1 ? 's' : ''} remaining until maturity on ${matureDate.toLocaleDateString()}). Your wallet funds remain 100% active for trading with VIP Signal boost.`
+        }, { status: 400 });
+      }
+    }
+
+    // 3. Minimum Withdrawal Setting
     const minWithdrawSetting = await SystemSetting.findOne({ key: 'min_withdrawal' });
     const minWithdraw = minWithdrawSetting ? Number(minWithdrawSetting.value) : 10;
 

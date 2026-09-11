@@ -85,6 +85,7 @@ export default function AdminDashboardPage() {
     execution_time_pst: '07:00 PM (PST)',
     duration_seconds: 180,
     profit_percentage: 5.00,
+    investment_profit_percentage: 8.50,
     outcome: 'WIN',
     status: 'ACTIVE',
     disclaimer: 'Disclaimer: Forex and CFD trading involve risk. Follow official signal parameters. Unscheduled trades are subject to 100% loss.'
@@ -107,17 +108,21 @@ export default function AdminDashboardPage() {
     instructions: 'Send USDT TRC-20.' 
   });
 
-  // Packages
+  // Yield Staking Packages & User Investments
   const [packages, setPackages] = useState([]);
-  const [newPackage, setNewPackage] = useState({
-    name: 'Standard Growth Tier',
-    min_amount: 100,
-    max_amount: 5000,
-    daily_roi: 2.5,
-    duration_days: 30,
-    total_return_roi: 75,
-    tag: 'Popular',
-    description: 'Algorithmic yield generation portfolio.'
+  const [adminInvestments, setAdminInvestments] = useState([]);
+  const [adminInvestmentsSummary, setAdminInvestmentsSummary] = useState({});
+  const [packageModalOpen, setPackageModalOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState(null);
+  const [packageSaving, setPackageSaving] = useState(false);
+  const [packageForm, setPackageForm] = useState({
+    name: '',
+    tag: 'Starter',
+    duration_days: 7,
+    total_return_roi: 15.0,
+    min_amount: 50,
+    max_amount: 10000,
+    description: ''
   });
 
   // Announcements & KYC & Settings
@@ -325,6 +330,7 @@ export default function AdminDashboardPage() {
     fetchWithdrawals(tok);
     fetchWallets(tok);
     fetchPackages(tok);
+    fetchAdminInvestments(tok);
     fetchAnnouncements(tok);
     fetchKyc(tok);
     fetchSettings(tok);
@@ -434,6 +440,132 @@ export default function AdminDashboardPage() {
       if (res.status === 401 || res.status === 403) return;
       const data = await res.json();
       if (data.success) setPackages(data.data || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchAdminInvestments = async (overrideTok) => {
+    try {
+      const admTok = overrideTok || getAdminToken();
+      if (!admTok) return;
+      const res = await fetch(`${API_BASE}/api/admin/investments`, { headers: { Authorization: `Bearer ${admTok}` } });
+      if (res.status === 401 || res.status === 403) return;
+      const data = await res.json();
+      if (data.success) {
+        setAdminInvestments(data.data?.investments || []);
+        setAdminInvestmentsSummary(data.data?.summary || {});
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleOpenCreatePackage = () => {
+    setEditingPackage(null);
+    setPackageForm({
+      name: '7-Day Starter Yield',
+      tag: 'Starter',
+      duration_days: 7,
+      total_return_roi: 15.0,
+      min_amount: 50,
+      max_amount: 10000,
+      description: 'Earn 15% guaranteed return after 7 days while trading freely with VIP Signal boost.'
+    });
+    setPackageModalOpen(true);
+  };
+
+  const handleOpenEditPackage = (pkg) => {
+    setEditingPackage(pkg);
+    setPackageForm({
+      name: pkg.name || '',
+      tag: pkg.tag || 'Yield Staking',
+      duration_days: pkg.duration_days || 7,
+      total_return_roi: pkg.total_return_roi || 15.0,
+      min_amount: pkg.min_amount || 50,
+      max_amount: pkg.max_amount || 10000,
+      description: pkg.description || ''
+    });
+    setPackageModalOpen(true);
+  };
+
+  const handleSavePackage = async (e) => {
+    e.preventDefault();
+    try {
+      setPackageSaving(true);
+      const isEdit = !!editingPackage;
+      const url = isEdit 
+        ? `${API_BASE}/api/admin/packages/${editingPackage._id || editingPackage.id}` 
+        : `${API_BASE}/api/admin/packages`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify(packageForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(isEdit ? 'Package updated successfully!' : 'Package created successfully!');
+        setPackageModalOpen(false);
+        fetchPackages();
+      } else {
+        alert(data.message || 'Failed to save package');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving package');
+    } finally {
+      setPackageSaving(false);
+    }
+  };
+
+  const handleDeletePackage = async (id) => {
+    if (!confirm('Are you sure you want to permanently delete this investment tier?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/packages/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${getAdminToken()}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPackages();
+      } else {
+        alert(data.message || 'Failed to delete');
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleTogglePackageStatus = async (pkg) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/packages/${pkg._id || pkg.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify({ is_active: !pkg.is_active })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPackages();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleInvestmentAction = async (investmentId, action) => {
+    const promptText = action === 'MATURE'
+      ? 'Are you sure you want to immediately mature this package and credit the profit to the user wallet?'
+      : 'Are you sure you want to cancel this package and release the withdrawal lock?';
+    if (!confirm(promptText)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/investments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` },
+        body: JSON.stringify({ investmentId, action })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        fetchAdminInvestments();
+        fetchUsers();
+      } else {
+        alert(data.message);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -1410,7 +1542,7 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">Profit Yield (%)</label>
+                    <label className="block text-xs font-bold text-slate-400 mb-1">Standard User Yield (%)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -1418,6 +1550,18 @@ export default function AdminDashboardPage() {
                       value={newSignal.profit_percentage}
                       onChange={(e) => setNewSignal({ ...newSignal, profit_percentage: Number(e.target.value) })}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-amber-400 mb-1">🌟 VIP Staking Plan Yield (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={newSignal.investment_profit_percentage}
+                      onChange={(e) => setNewSignal({ ...newSignal, investment_profit_percentage: Number(e.target.value) })}
+                      className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold"
                     />
                   </div>
 
@@ -1455,7 +1599,8 @@ export default function AdminDashboardPage() {
                         <th className="py-3 px-3">Type</th>
                         <th className="py-3 px-3">PST Time</th>
                         <th className="py-3 px-3">Duration</th>
-                        <th className="py-3 px-3">Yield</th>
+                        <th className="py-3 px-3">Standard Yield</th>
+                        <th className="py-3 px-3">VIP Staking Yield</th>
                         <th className="py-3 px-3">Status</th>
                         <th className="py-3 px-3 text-right">Action</th>
                       </tr>
@@ -1468,7 +1613,8 @@ export default function AdminDashboardPage() {
                           <td className="py-3 px-3 font-extrabold">{s.order_type}</td>
                           <td className="py-3 px-3 text-slate-400">{s.execution_time_pst}</td>
                           <td className="py-3 px-3 font-mono">{s.duration_seconds}s</td>
-                          <td className="py-3 px-3 font-mono text-emerald-400">+{s.profit_percentage}%</td>
+                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">+{s.profit_percentage}%</td>
+                          <td className="py-3 px-3 font-mono font-bold text-amber-400">+{s.investment_profit_percentage || (s.profit_percentage * 1.6).toFixed(2)}%</td>
                           <td className="py-3 px-3">
                             <button
                               onClick={() => handleToggleSignalStatus(s)}
@@ -1712,6 +1858,231 @@ export default function AdminDashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: YIELD STAKING PLANS & USER SUBSCRIPTIONS */}
+          {tab === 'packages' && (
+            <div className="space-y-6">
+              {/* Top Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Active Staked Principal</p>
+                  <p className="text-2xl font-black font-mono text-white">
+                    ${Number(adminInvestmentsSummary.totalActiveStaked || 0).toFixed(2)}
+                  </p>
+                  <p className="text-[11px] text-blue-400">Locked in earning yield</p>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Active Positions</p>
+                  <p className="text-2xl font-black font-mono text-emerald-400">
+                    {adminInvestmentsSummary.activeCount || 0}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Subscribed users</p>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Total Profit Disbursed</p>
+                  <p className="text-2xl font-black font-mono text-amber-400">
+                    +${Number(adminInvestmentsSummary.totalProfitDisbursed || 0).toFixed(2)}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Matured package profits</p>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Available Tiers</p>
+                  <p className="text-2xl font-black font-mono text-purple-400">
+                    {packages.length}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Active strategies</p>
+                </div>
+              </div>
+
+              {/* Staking Packages Catalog */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-blue-500" />
+                      <span>Institutional Yield Staking Packages</span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Configure fixed duration plans (7d 15%, 14d 22%, 21d 28%, 30d 35%). Active subscribers unlock VIP Signal profit rate!
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleOpenCreatePackage}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Staking Tier</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  {packages.map((pkg) => (
+                    <div
+                      key={pkg._id || pkg.id}
+                      className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-600 transition-colors"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            {pkg.tag || 'Staking Tier'}
+                          </span>
+                          <button
+                            onClick={() => handleTogglePackageStatus(pkg)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer transition-colors ${
+                              pkg.is_active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            {pkg.is_active ? 'ACTIVE' : 'INACTIVE'}
+                          </button>
+                        </div>
+
+                        <div>
+                          <h4 className="font-extrabold text-white text-base">{pkg.name}</h4>
+                          <p className="text-xs text-slate-400 mt-1 line-clamp-2">{pkg.description}</p>
+                        </div>
+
+                        <div className="bg-slate-900/80 rounded-xl p-3 space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Lock Duration:</span>
+                            <span className="font-extrabold text-white">{pkg.duration_days} Days</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Guaranteed Return:</span>
+                            <span className="font-mono font-black text-emerald-400">+{pkg.total_return_roi}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Min / Max Limit:</span>
+                            <span className="font-mono font-bold text-slate-200">${pkg.min_amount} - ${pkg.max_amount}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-800 pt-1.5 mt-1">
+                            <span className="text-slate-400">Active Subscribers:</span>
+                            <span className="font-mono font-bold text-blue-400">{pkg.active_subscribers || 0} Traders</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => handleOpenEditPackage(pkg)}
+                          className="flex-1 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-extrabold text-xs border border-blue-500/20 cursor-pointer"
+                        >
+                          Edit Plan
+                        </button>
+                        <button
+                          onClick={() => handleDeletePackage(pkg._id || pkg.id)}
+                          className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 cursor-pointer"
+                          title="Delete Package"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* User Staking Subscriptions Ledger */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">Live User Staking Subscriptions Ledger</h3>
+                    <p className="text-xs text-slate-400">Active and past user investments. Withdrawals are locked while active.</p>
+                  </div>
+                  <button
+                    onClick={() => fetchAdminInvestments()}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                  >
+                    Refresh List
+                  </button>
+                </div>
+
+                {adminInvestments.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-8 text-center">No user investments recorded yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                          <th className="py-3 px-3">Trader</th>
+                          <th className="py-3 px-3">Plan Name</th>
+                          <th className="py-3 px-3">Staked Capital</th>
+                          <th className="py-3 px-3">Return ROI</th>
+                          <th className="py-3 px-3">Expected Profit</th>
+                          <th className="py-3 px-3">Start Date</th>
+                          <th className="py-3 px-3">Maturity Date</th>
+                          <th className="py-3 px-3">Status</th>
+                          <th className="py-3 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {adminInvestments.map((inv) => {
+                          const userObj = inv.user_id || {};
+                          const isActive = inv.status === 'ACTIVE';
+                          const matureDate = new Date(inv.matures_at || (new Date(inv.created_at).getTime() + (inv.duration_days || 7) * 86400 * 1000));
+                          const msLeft = matureDate.getTime() - Date.now();
+                          const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+
+                          return (
+                            <tr key={inv._id || inv.id} className="hover:bg-slate-800/40">
+                              <td className="py-3 px-3">
+                                <p className="font-bold text-white">{userObj.name || 'User'}</p>
+                                <p className="text-[11px] font-mono text-slate-400">{userObj.email || 'N/A'}</p>
+                              </td>
+                              <td className="py-3 px-3 font-extrabold text-blue-400">{inv.package_name}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-white">${Number(inv.amount).toFixed(2)}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-emerald-400">+{inv.total_roi}%</td>
+                              <td className="py-3 px-3 font-mono font-black text-amber-400">+${Number(inv.expected_profit || (inv.amount * inv.total_roi / 100)).toFixed(2)}</td>
+                              <td className="py-3 px-3 text-slate-400">{new Date(inv.created_at).toLocaleDateString()}</td>
+                              <td className="py-3 px-3">
+                                <p className="font-bold text-slate-200">{matureDate.toLocaleDateString()}</p>
+                                {isActive && (
+                                  <p className="text-[10px] text-amber-400 font-mono">({daysLeft} days left)</p>
+                                )}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                                  inv.status === 'ACTIVE' 
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' 
+                                    : inv.status === 'COMPLETED'
+                                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                      : 'bg-slate-700 text-slate-400'
+                                }`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right space-x-1.5 whitespace-nowrap">
+                                {isActive && (
+                                  <>
+                                    <button
+                                      onClick={() => handleInvestmentAction(inv._id || inv.id, 'MATURE')}
+                                      className="px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-extrabold text-[11px] border border-emerald-500/30 cursor-pointer"
+                                      title="Manually Mature and credit profit to user wallet"
+                                    >
+                                      💰 Mature & Payout
+                                    </button>
+                                    <button
+                                      onClick={() => handleInvestmentAction(inv._id || inv.id, 'CANCEL')}
+                                      className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-extrabold text-[11px] border border-rose-500/30 cursor-pointer"
+                                      title="Cancel and release withdrawal lock"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2810,7 +3181,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 mb-1">Duration (Seconds)</label>
                   <input
@@ -2822,7 +3193,7 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">Profit Yield (%)</label>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Standard Yield (%)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -2830,6 +3201,17 @@ export default function AdminDashboardPage() {
                     value={editingSignal.profit_percentage || 5}
                     onChange={(e) => setEditingSignal({ ...editingSignal, profit_percentage: Number(e.target.value) })}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-400 mb-1">VIP Staking Yield (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editingSignal.investment_profit_percentage || 8.50}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, investment_profit_percentage: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold"
                   />
                 </div>
                 <div>
@@ -2859,6 +3241,131 @@ export default function AdminDashboardPage() {
                   className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {editSignalLoading ? 'Saving Signal...' : 'Save Signal Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE / EDIT YIELD STAKING PACKAGE MODAL */}
+      {packageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Layers className="w-5 h-5 text-blue-500" />
+                <span>{editingPackage ? 'Edit Yield Staking Package' : 'Create New Yield Staking Package'}</span>
+              </h3>
+              <button onClick={() => setPackageModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePackage} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">Package Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 7-Day Starter Yield"
+                  value={packageForm.name}
+                  onChange={(e) => setPackageForm({ ...packageForm, name: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Category / Tag</label>
+                  <select
+                    value={packageForm.tag}
+                    onChange={(e) => setPackageForm({ ...packageForm, tag: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  >
+                    <option value="Starter">Starter</option>
+                    <option value="Popular">Popular</option>
+                    <option value="VIP Elite">VIP Elite</option>
+                    <option value="Max Return">Max Return</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={packageForm.duration_days}
+                    onChange={(e) => setPackageForm({ ...packageForm, duration_days: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-emerald-400 mb-1">Total Return (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    placeholder="e.g. 15.0"
+                    value={packageForm.total_return_roi}
+                    onChange={(e) => setPackageForm({ ...packageForm, total_return_roi: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-emerald-500/40 rounded-xl px-3 py-2 text-xs text-emerald-300 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Min Capital ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={packageForm.min_amount}
+                    onChange={(e) => setPackageForm({ ...packageForm, min_amount: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Max Capital ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={packageForm.max_amount}
+                    onChange={(e) => setPackageForm({ ...packageForm, max_amount: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">Description / Perks</label>
+                <textarea
+                  rows="2"
+                  value={packageForm.description}
+                  onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })}
+                  placeholder="e.g. Earn 15% guaranteed return after 7 days. Full balance remains active for trading with VIP Signal boost!"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPackageModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={packageSaving}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {packageSaving ? 'Saving Plan...' : (editingPackage ? 'Update Staking Plan' : 'Publish Staking Plan')}
                 </button>
               </div>
             </form>

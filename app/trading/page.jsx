@@ -65,8 +65,9 @@ function TradingContent() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyMeta, setHistoryMeta] = useState({});
 
-  // Active Daily Signal
+  // Active Daily Signal & VIP Boost Status
   const [activeSignal, setActiveSignal] = useState(null);
+  const [hasVipBoost, setHasVipBoost] = useState(false);
 
   // 1. Fetch live pairs with periodic polling
   useEffect(() => {
@@ -93,7 +94,7 @@ function TradingContent() {
     };
   }, []);
 
-  // 2. Fetch Active Daily Signal
+  // 2. Fetch Active Daily Signal & VIP Staking Status
   useEffect(() => {
     fetch(`${API_BASE}/api/signals/active`)
       .then(res => res.json())
@@ -103,7 +104,22 @@ function TradingContent() {
         }
       })
       .catch(console.error);
-  }, []);
+
+    if (token) {
+      fetch(`${API_BASE}/api/investments/my`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data?.summary?.hasVipBoost) {
+            setHasVipBoost(true);
+          } else if ((user?.investment_balance || 0) > 0) {
+            setHasVipBoost(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token, user]);
 
   // 3. Check for running background trade on load / refresh
   useEffect(() => {
@@ -335,8 +351,8 @@ function TradingContent() {
     activeSignal.instrument?.replace('/', '').toUpperCase() === selectedPair?.replace('/', '').toUpperCase() &&
     activeSignal.order_type?.toUpperCase() === tradeType?.toUpperCase();
 
-  const payoutRate = isMatchingActiveSignal && activeSignal.profit_percentage > 0
-    ? activeSignal.profit_percentage
+  const payoutRate = isMatchingActiveSignal && (activeSignal.profit_percentage > 0 || activeSignal.investment_profit_percentage > 0)
+    ? (hasVipBoost ? (activeSignal.investment_profit_percentage || (activeSignal.profit_percentage * 1.6) || 8.50) : activeSignal.profit_percentage)
     : (currentPairData.payout_rate || 88.0);
 
   const estimatedProfit = ((tradeAmount * payoutRate) / 100).toFixed(2);

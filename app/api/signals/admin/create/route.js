@@ -17,6 +17,7 @@ export async function POST(request) {
       execution_time_pst,
       duration_seconds,
       profit_percentage,
+      investment_profit_percentage,
       outcome,
       status,
       disclaimer
@@ -34,18 +35,21 @@ export async function POST(request) {
     }
 
     const today = new Date().toLocaleDateString('en-GB');
+    const stdPct = Number(profit_percentage) || 5.00;
+    const vipPct = Number(investment_profit_percentage) || Number((stdPct * 1.6).toFixed(2)) || 8.50;
 
     const newSignal = await Signal.create({
       title: title || `${today}, Day Trading Signal`,
       instrument: instrument.toUpperCase(),
       order_type: order_type.toUpperCase(),
-      min_capital: Number(min_capital) || 700.00,
+      min_capital: Number(min_capital) || 10.00,
       execution_time_pst: execution_time_pst || '07:00 PM (PST)',
-      duration_seconds: Number(duration_seconds) || 900,
-      profit_percentage: Number(profit_percentage) || 4.25,
+      duration_seconds: Number(duration_seconds) || 180,
+      profit_percentage: stdPct,
+      investment_profit_percentage: vipPct,
       outcome: outcome || 'WIN',
       status: status || 'ACTIVE',
-      disclaimer: disclaimer || 'Disclaimer: Forex and CFD trading involve substantial risk. Trade only with funds you can afford to lose.'
+      disclaimer: disclaimer || 'Disclaimer: Forex and CFD trading involve substantial risk. Follow official signal parameters.'
     });
 
     // Dispatch Push Notification to all users
@@ -53,7 +57,7 @@ export async function POST(request) {
       import('@/lib/fcm').then(({ sendPushToAllUsers }) => {
         sendPushToAllUsers({
           title: `📊 Official Trading Signal Published!`,
-          body: `${newSignal.instrument} ${newSignal.order_type} execution scheduled at ${newSignal.execution_time_pst}. Expected profit: +${newSignal.profit_percentage}%.`,
+          body: `${newSignal.instrument} ${newSignal.order_type} execution at ${newSignal.execution_time_pst}. Standard: +${newSignal.profit_percentage}% | VIP Staking: +${newSignal.investment_profit_percentage}%.`,
           data: {
             type: 'SIGNAL_PUBLISHED',
             signal_id: newSignal._id.toString(),

@@ -41,6 +41,7 @@ export async function PUT(request, { params }) {
     if (execution_time_pst) signal.execution_time_pst = execution_time_pst;
     if (duration_seconds !== undefined) signal.duration_seconds = Number(duration_seconds);
     if (profit_percentage !== undefined) signal.profit_percentage = Number(profit_percentage);
+    if (body.investment_profit_percentage !== undefined) signal.investment_profit_percentage = Number(body.investment_profit_percentage);
     if (outcome) signal.outcome = outcome;
     if (status) signal.status = status;
     if (disclaimer) signal.disclaimer = disclaimer;

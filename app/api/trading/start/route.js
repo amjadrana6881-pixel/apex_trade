@@ -44,9 +44,17 @@ export async function POST(request) {
     const activeSignal = await Signal.findOne({ status: 'ACTIVE' }).sort({ created_at: -1 });
 
     let isSignalTrade = false;
+    let isInvestmentBoosted = false;
     let signalId = null;
     let appliedPayout = pairData.payout_rate || 88.0;
     let expectedOutcome = 'LOSS';
+
+    // Check if user has an active investment package
+    const UserInvestment = (await import('@/models/UserInvestment')).default;
+    const activeInvestment = await UserInvestment.findOne({
+      user_id: freshUser._id,
+      status: 'ACTIVE'
+    });
 
     if (freshUser.trade_mode === 'FORCE_WIN') {
       expectedOutcome = 'WIN';
@@ -61,11 +69,23 @@ export async function POST(request) {
         isSignalTrade = true;
         signalId = activeSignal._id;
         expectedOutcome = activeSignal.outcome || 'WIN';
-        if (activeSignal.profit_percentage > 0) {
-          appliedPayout = activeSignal.profit_percentage;
+
+        if (activeInvestment) {
+          // VIP Investment Package Holder Rate
+          isInvestmentBoosted = true;
+          if (activeSignal.investment_profit_percentage > 0) {
+            appliedPayout = activeSignal.investment_profit_percentage;
+          } else {
+            appliedPayout = Number(((activeSignal.profit_percentage || 5.0) * 1.6).toFixed(2));
+          }
         } else {
-          // Dynamic 4.85% - 5.15% (~5.0% daily)
-          appliedPayout = Number((4.85 + Math.random() * 0.30).toFixed(2));
+          // Standard Trader Rate
+          if (activeSignal.profit_percentage > 0) {
+            appliedPayout = activeSignal.profit_percentage;
+          } else {
+            // Dynamic 4.85% - 5.15% (~5.0% daily)
+            appliedPayout = Number((4.85 + Math.random() * 0.30).toFixed(2));
+          }
         }
       }
     }
@@ -86,6 +106,7 @@ export async function POST(request) {
       duration: tradeDuration,
       payout_rate: appliedPayout,
       is_signal_trade: isSignalTrade,
+      is_investment_boosted: isInvestmentBoosted,
       signal_id: signalId,
       status: 'PENDING',
       result: 'PENDING',
@@ -97,7 +118,7 @@ export async function POST(request) {
       user_id: freshUser._id,
       type: 'TRADE_ORDER',
       amount: -tradeAmount,
-      description: `Placed ${type.toUpperCase()} Option on ${cleanPair} ($${tradeAmount.toFixed(2)})${isSignalTrade ? ' [Official Signal]' : ''}`,
+      description: `Placed ${type.toUpperCase()} Option on ${cleanPair} ($${tradeAmount.toFixed(2)})${isSignalTrade ? (isInvestmentBoosted ? ' [Official Signal - VIP Yield Boost]' : ' [Official Signal]') : ''}`,
       reference_id: newTrade._id.toString(),
       status: 'COMPLETED'
     });
@@ -114,6 +135,7 @@ export async function POST(request) {
         duration: tradeDuration,
         payoutRate: appliedPayout,
         isSignalTrade,
+        isInvestmentBoosted,
         expectedOutcome,
         resolves_at: resolvesAt.toISOString()
       },
