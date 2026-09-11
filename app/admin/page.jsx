@@ -50,6 +50,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
+import SignalDateTimePicker from '@/app/components/SignalDateTimePicker';
 
 export default function AdminDashboardPage() {
   const { token, user, login, logout } = useAuth();
@@ -200,10 +201,32 @@ export default function AdminDashboardPage() {
   const [adminAuthError, setAdminAuthError] = useState('');
 
   const syncAdminNative = (adminUser, adminToken) => {
-    if (typeof window !== 'undefined' && window.ApexNative?.saveAuthToken && adminUser?._id) {
-      try {
-        window.ApexNative.saveAuthToken(adminUser._id.toString(), adminToken || '');
-      } catch (e) {}
+    if (typeof window !== 'undefined' && adminUser?._id) {
+      if (window.ApexNative?.saveAuthToken) {
+        try {
+          window.ApexNative.saveAuthToken(adminUser._id.toString(), adminToken || '');
+        } catch (e) {}
+      }
+      if (window.ApexNative?.getFcmToken) {
+        try {
+          const nativeFcmToken = window.ApexNative.getFcmToken();
+          if (nativeFcmToken && typeof nativeFcmToken === 'string' && nativeFcmToken.trim().length > 10) {
+            fetch(`${API_BASE}/api/auth/save-fcm-token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+              },
+              body: JSON.stringify({
+                token: nativeFcmToken,
+                app_type: 'admin',
+                device_os: 'android',
+                user_id: adminUser._id.toString()
+              })
+            }).catch(() => {});
+          }
+        } catch (e) {}
+      }
     }
   };
 
@@ -1519,16 +1542,11 @@ export default function AdminDashboardPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1">Execution Time (PST)</label>
-                    <input
-                      type="text"
-                      required
-                      value={newSignal.execution_time_pst}
-                      onChange={(e) => setNewSignal({ ...newSignal, execution_time_pst: e.target.value })}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                    />
-                  </div>
+                  <SignalDateTimePicker
+                    label="Execution Time (PKT / PST)"
+                    value={newSignal.execution_time_pst}
+                    onChange={(val) => setNewSignal({ ...newSignal, execution_time_pst: val })}
+                  />
 
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-1">Duration (Seconds)</label>
@@ -3169,16 +3187,11 @@ export default function AdminDashboardPage() {
                     <option value="SELL">SELL / PUT</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">Execution Time (PST / PKT)</label>
-                  <input
-                    type="text"
-                    required
-                    value={editingSignal.execution_time_pst || ''}
-                    onChange={(e) => setEditingSignal({ ...editingSignal, execution_time_pst: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                  />
-                </div>
+                <SignalDateTimePicker
+                  label="Execution Time (PKT / PST)"
+                  value={editingSignal.execution_time_pst || ''}
+                  onChange={(val) => setEditingSignal({ ...editingSignal, execution_time_pst: val })}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

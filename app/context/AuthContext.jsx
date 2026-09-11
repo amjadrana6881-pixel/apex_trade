@@ -13,10 +13,32 @@ export function AuthProvider({ children }) {
 
   // Sync with native Android app if running inside WebView
   const syncWithNativeApp = (userData, authToken) => {
-    if (typeof window !== 'undefined' && window.ApexNative?.saveAuthToken && userData?._id) {
-      try {
-        window.ApexNative.saveAuthToken(userData._id.toString(), authToken || '');
-      } catch (e) {}
+    if (typeof window !== 'undefined' && userData?._id) {
+      if (window.ApexNative?.saveAuthToken) {
+        try {
+          window.ApexNative.saveAuthToken(userData._id.toString(), authToken || '');
+        } catch (e) {}
+      }
+      if (window.ApexNative?.getFcmToken) {
+        try {
+          const nativeFcmToken = window.ApexNative.getFcmToken();
+          if (nativeFcmToken && typeof nativeFcmToken === 'string' && nativeFcmToken.trim().length > 10) {
+            fetch(`${API_BASE}/api/auth/save-fcm-token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+              },
+              body: JSON.stringify({
+                token: nativeFcmToken,
+                app_type: 'user',
+                device_os: 'android',
+                user_id: userData._id.toString()
+              })
+            }).catch(() => {});
+          }
+        } catch (e) {}
+      }
     }
   };
 
