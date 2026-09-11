@@ -7,6 +7,7 @@ import Signal from '@/models/Signal';
 import TradingPair from '@/models/TradingPair';
 import Transaction from '@/models/Transaction';
 import { isCurrentlySignalTime, formatPKTTime } from '@/lib/timeUtils';
+import { sendPushToAdmins } from '@/lib/fcm';
 
 export async function POST(request) {
   const { errorResponse, user } = await requireAuth(request);
@@ -122,6 +123,21 @@ export async function POST(request) {
       reference_id: newTrade._id.toString(),
       status: 'COMPLETED'
     });
+
+    // Notify Super Admins of active trade placement
+    try {
+      await sendPushToAdmins({
+        title: `📊 Live Trade Placed: $${tradeAmount.toFixed(2)} (${cleanPair})`,
+        body: `${freshUser.name || 'Trader'} placed a ${type.toUpperCase()} order on ${cleanPair} for $${tradeAmount.toFixed(2)}.`,
+        data: {
+          type: 'NEW_TRADE',
+          tradeId: newTrade._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    } catch (pushErr) {
+      console.error('Trade push notification error:', pushErr);
+    }
 
     return NextResponse.json({
       success: true,
