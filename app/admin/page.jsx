@@ -47,6 +47,7 @@ import {
   Volume2,
   VolumeX,
   MessageSquarePlus,
+  Plus,
   User as UserIcon
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
