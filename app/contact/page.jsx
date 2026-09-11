@@ -200,26 +200,26 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 pb-20 md:pb-6">
+    <div className="max-w-4xl w-full mx-auto space-y-2.5 sm:space-y-4 flex-1 flex flex-col pb-0 sm:pb-4">
       
       {/* 1. Messenger Header Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs flex items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xs flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20">
-              <Headphones className="w-6 h-6" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20">
+              <Headphones className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
 
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">ApexTrade Live Human Support</h1>
+              <h1 className="text-sm sm:text-lg font-black text-slate-900 leading-tight">ApexTrade Live Human Support</h1>
               <span className="px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-200">
                 ONLINE
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
               Official Dedicated Human Desk • Typical response under 2 mins
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function ContactPage() {
       </div>
 
       {/* 2. Full Live Chat Messenger Area */}
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden flex flex-col h-[560px] sm:h-[640px]">
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-[460px] h-[calc(100dvh-165px)] sm:h-[640px]">
         
         {/* Messages Feed */}
         <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 bg-slate-50/60">

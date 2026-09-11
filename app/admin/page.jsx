@@ -1056,9 +1056,18 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
       
+      {/* Mobile Drawer Backdrop Overlay */}
+      {mobileSidebarOpen && (
+        <div 
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in"
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar (Desktop & Mobile Drawer) */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-transform duration-200 md:static md:translate-x-0 ${
-        mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        mobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
       }`}>
         <div className="p-5 space-y-6">
           <div className="flex items-center justify-between">
@@ -2827,7 +2836,7 @@ export default function AdminDashboardPage() {
       {/* BALANCE ADJUSTMENT MODAL */}
       {balanceModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-base font-extrabold text-white">Adjust User Balance</h3>
               <button onClick={() => setBalanceModalUser(null)} className="text-slate-400 hover:text-white">
@@ -3104,7 +3113,7 @@ export default function AdminDashboardPage() {
       {/* USER DETAILS INSPECTION MODAL */}
       {inspectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-white">{inspectedUser.name}</h3>
@@ -3175,7 +3184,7 @@ export default function AdminDashboardPage() {
       {/* EDIT SIGNAL MODAL */}
       {editingSignal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-blue-500" />
@@ -3293,17 +3302,41 @@ export default function AdminDashboardPage() {
                     className="w-full bg-slate-800 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">Status</label>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Minimum Capital ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingSignal.min_capital || 10}
+                    onChange={(e) => setEditingSignal({ ...editingSignal, min_capital: Number(e.target.value) })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1">Signal Status</label>
                   <select
                     value={editingSignal.status || 'ACTIVE'}
                     onChange={(e) => setEditingSignal({ ...editingSignal, status: e.target.value })}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
                   >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="EXPIRED">EXPIRED</option>
+                    <option value="ACTIVE">ACTIVE (Traders can execute)</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="INACTIVE">INACTIVE / PAUSED</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">Disclaimer / Instructions</label>
+                <textarea
+                  rows="2"
+                  value={editingSignal.disclaimer || ''}
+                  onChange={(e) => setEditingSignal({ ...editingSignal, disclaimer: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                />
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -3330,7 +3363,7 @@ export default function AdminDashboardPage() {
       {/* CREATE / EDIT YIELD STAKING PACKAGE MODAL */}
       {packageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-4 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
                 <Layers className="w-5 h-5 text-blue-500" />

@@ -45,12 +45,12 @@ export default function ClientLayout({ children }) {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-50 pb-20 md:pb-6">
+      <div className={`flex-1 flex flex-col min-w-0 bg-slate-50 ${isChatPage ? 'pb-14 md:pb-6' : 'pb-16 md:pb-6'}`}>
         {/* Header */}
         <Header />
 
         {/* Dynamic Page Container */}
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className={`flex-1 w-full mx-auto ${isChatPage ? 'p-2 sm:p-6 lg:p-8 max-w-4xl flex flex-col' : 'p-3 sm:p-6 lg:p-8 max-w-7xl'}`}>
           {children}
         </main>
       </div>
