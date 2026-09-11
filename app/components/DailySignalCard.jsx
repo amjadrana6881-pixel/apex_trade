@@ -254,10 +254,10 @@ export default function DailySignalCard({ signal }) {
                   <span>DANGER: OFF-TIME TRADE (HIGH RISK OF LOSS)</span>
                 </div>
                 <p className="text-xs text-rose-800 font-bold leading-relaxed">
-                  🛑 Aap official signal time se pehle / ghalat time par trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (loss)</strong> hoga!
+                  🛑 You are attempting to trade before or outside the scheduled signal window. Executing a trade now will result in <strong>market loss</strong>!
                 </p>
                 <p className="text-xs text-rose-700 font-semibold">
-                  Official Signal Time: <strong className="text-rose-950 font-black">{signal.execution_time_pst || 'Scheduled Time'}</strong>. Baraye meherbani signal time par hi execute karein.
+                  Official Signal Time: <strong className="text-rose-950 font-black">{signal.execution_time_pst || 'Scheduled Time'}</strong>. Please cancel and wait for the exact signal time to execute safely.
                 </p>
               </div>
             )}

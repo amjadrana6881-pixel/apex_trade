@@ -398,9 +398,6 @@ function TradingContent() {
     ? (hasVipBoost ? (activeSignal.investment_profit_percentage || (activeSignal.profit_percentage * 1.6) || 8.50) : activeSignal.profit_percentage)
     : (currentPairData.payout_rate || 88.0);
 
-  const estimatedProfit = ((tradeAmount * payoutRate) / 100).toFixed(2);
-  const estimatedTotal = (Number(tradeAmount) + Number(estimatedProfit)).toFixed(2);
-
   return (
     <div className="space-y-4 sm:space-y-6 pb-20 md:pb-6">
       
@@ -494,10 +491,11 @@ function TradingContent() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-              <span className="text-xs text-slate-400 font-bold uppercase">Payout:</span>
-              <span className="text-sm sm:text-lg font-black font-mono text-emerald-600">
-                {currentPairData.payout_rate || 88}%
+            <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Status:</span>
+              <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Live Market</span>
               </span>
             </div>
           </div>
@@ -702,10 +700,10 @@ function TradingContent() {
               <div className="p-3.5 bg-rose-50 border-2 border-rose-500 rounded-2xl text-xs space-y-1.5 animate-pulse">
                 <div className="flex items-center gap-1.5 font-black text-rose-700">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span className="uppercase tracking-wide text-xs">⚠️ DANGER: WRONG TIME / KHATRA</span>
+                  <span className="uppercase tracking-wide text-xs">⚠️ DANGER: WRONG TIME / HIGH RISK</span>
                 </div>
                 <p className="text-xs text-rose-800 font-bold leading-relaxed">
-                  Aap official signal time ke baghair trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (loss)</strong> hoga! Signal Time: <strong>{activeSignal?.execution_time_pst || 'Scheduled Time'}</strong>.
+                  You are attempting to trade outside the official signal time. Trading now will lead to <strong>market loss</strong>! Official Signal Time: <strong>{activeSignal?.execution_time_pst || 'Scheduled Time'}</strong>.
                 </p>
               </div>
             )}
@@ -865,13 +863,13 @@ function TradingContent() {
               <div className="p-4 bg-rose-50 border-2 border-rose-500 rounded-2xl text-left space-y-2">
                 <div className="flex items-center gap-2 text-rose-700 font-black text-sm">
                   <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 animate-bounce" />
-                  <span>🛑 HIGH RISK WARNING: WRONG TIME TRADE</span>
+                  <span>🛑 HIGH RISK WARNING: TIME MISMATCH</span>
                 </div>
                 <p className="text-xs text-rose-800 font-bold leading-relaxed">
-                  Aap official signal time se pehle ya ghalat waqt par trade laga rahe hain. Abhi trade lagane se <strong>nuqsan (market loss)</strong> hoga!
+                  You are placing a trade before or outside the official signal time. Trading now will result in <strong>market loss</strong>!
                 </p>
                 <p className="text-xs text-rose-700 font-semibold">
-                  Official Signal Time: <strong className="text-rose-950 font-black">{activeSignal?.execution_time_pst || 'Check Signals Page'}</strong>. Nuqsan se bachne ke liye trade cancel karein aur signal time par lagayein.
+                  Official Signal Time: <strong className="text-rose-950 font-black">{activeSignal?.execution_time_pst || 'Check Signals Page'}</strong>. Please cancel this trade to protect your capital and wait for the exact signal time.
                 </p>
               </div>
             )}
