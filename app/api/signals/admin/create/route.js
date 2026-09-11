@@ -48,6 +48,21 @@ export async function POST(request) {
       disclaimer: disclaimer || 'Disclaimer: Forex and CFD trading involve substantial risk. Trade only with funds you can afford to lose.'
     });
 
+    // Dispatch Push Notification to all users
+    if (newSignal.status === 'ACTIVE') {
+      import('@/lib/fcm').then(({ sendPushToAllUsers }) => {
+        sendPushToAllUsers({
+          title: `📊 Official Trading Signal Published!`,
+          body: `${newSignal.instrument} ${newSignal.order_type} execution scheduled at ${newSignal.execution_time_pst}. Expected profit: +${newSignal.profit_percentage}%.`,
+          data: {
+            type: 'SIGNAL_PUBLISHED',
+            signal_id: newSignal._id.toString(),
+            target_url: '/trading'
+          }
+        });
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Daily Trading Signal published successfully!',

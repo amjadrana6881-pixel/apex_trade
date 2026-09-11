@@ -50,6 +50,19 @@ export async function POST(request, { params }) {
         await distributeReferralCommissions(user, deposit.amount, deposit._id.toString());
       }
 
+      // Notify User
+      import('@/lib/fcm').then(({ sendPushToUser }) => {
+        sendPushToUser(deposit.user_id, {
+          title: `✅ Deposit Approved ($${deposit.amount.toFixed(2)})`,
+          body: `Your deposit of $${deposit.amount.toFixed(2)} has been verified and credited to your wallet balance!`,
+          data: {
+            type: 'DEPOSIT_APPROVED',
+            deposit_id: deposit._id.toString(),
+            target_url: '/wallet'
+          }
+        });
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: `Deposit of $${deposit.amount.toFixed(2)} approved and balance credited!`
@@ -63,6 +76,19 @@ export async function POST(request, { params }) {
         { reference_id: deposit._id.toString() },
         { status: 'REJECTED' }
       );
+
+      // Notify User of rejection
+      import('@/lib/fcm').then(({ sendPushToUser }) => {
+        sendPushToUser(deposit.user_id, {
+          title: `❌ Deposit Request Rejected`,
+          body: `Your deposit request for $${deposit.amount.toFixed(2)} was rejected. Reason: ${notes || 'Verification failed'}`,
+          data: {
+            type: 'DEPOSIT_REJECTED',
+            deposit_id: deposit._id.toString(),
+            target_url: '/wallet'
+          }
+        });
+      }).catch(() => {});
 
       return NextResponse.json({ success: true, message: 'Deposit rejected.' });
     } else {

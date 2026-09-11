@@ -95,6 +95,19 @@ export async function POST(request) {
       status: 'PENDING'
     });
 
+    // Notify Super Admins
+    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
+      sendPushToAdmins({
+        title: `📤 New Withdrawal Request: $${withdrawAmount.toFixed(2)}`,
+        body: `${freshUser.name || 'User'} requested payout of $${netAmount.toFixed(2)} to ${destinationAddress.trim().substring(0, 10)}...`,
+        data: {
+          type: 'NEW_WITHDRAWAL',
+          withdrawal_id: newWithdrawal._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: `Withdrawal request for $${withdrawAmount.toFixed(2)} submitted successfully! Processed within standard blockchain clearance.`,

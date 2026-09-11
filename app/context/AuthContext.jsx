@@ -11,6 +11,15 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Sync with native Android app if running inside WebView
+  const syncWithNativeApp = (userData, authToken) => {
+    if (typeof window !== 'undefined' && window.ApexNative?.saveAuthToken && userData?._id) {
+      try {
+        window.ApexNative.saveAuthToken(userData._id.toString(), authToken || '');
+      } catch (e) {}
+    }
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('apextrade_token');
     const savedUser = localStorage.getItem('apextrade_user');
@@ -19,7 +28,9 @@ export function AuthProvider({ children }) {
       setToken(savedToken);
       if (savedUser) {
         try {
-          setUser(JSON.parse(savedUser));
+          const parsed = JSON.parse(savedUser);
+          setUser(parsed);
+          syncWithNativeApp(parsed, savedToken);
         } catch (e) {}
       }
       fetchProfile(savedToken);
@@ -43,6 +54,7 @@ export function AuthProvider({ children }) {
       if (data.success && data.user) {
         setUser(data.user);
         localStorage.setItem('apextrade_user', JSON.stringify(data.user));
+        syncWithNativeApp(data.user, activeToken);
       } else {
         logout();
       }
@@ -58,6 +70,7 @@ export function AuthProvider({ children }) {
     setUser(userData);
     localStorage.setItem('apextrade_token', newToken);
     localStorage.setItem('apextrade_user', JSON.stringify(userData));
+    syncWithNativeApp(userData, newToken);
     fetchProfile(newToken);
   };
 
@@ -82,3 +95,4 @@ export function useAuth() {
   }
   return context;
 }
+

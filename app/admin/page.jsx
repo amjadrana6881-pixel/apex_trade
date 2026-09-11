@@ -194,6 +194,14 @@ export default function AdminDashboardPage() {
   const [adminAuthLoading, setAdminAuthLoading] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState('');
 
+  const syncAdminNative = (adminUser, adminToken) => {
+    if (typeof window !== 'undefined' && window.ApexNative?.saveAuthToken && adminUser?._id) {
+      try {
+        window.ApexNative.saveAuthToken(adminUser._id.toString(), adminToken || '');
+      } catch (e) {}
+    }
+  };
+
   const getAdminToken = () => {
     if (typeof window === 'undefined') return null;
     return (
@@ -222,6 +230,7 @@ export default function AdminDashboardPage() {
         }
         localStorage.setItem('apextrade_admin_token', data.token);
         localStorage.setItem('apextrade_admin_user', JSON.stringify(data.user));
+        syncAdminNative(data.user, data.token);
         login(data.token, data.user);
         setAuthRequired(false);
         setAdminPassword('');
@@ -238,6 +247,12 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const admTok = getAdminToken();
+    const admUser = localStorage.getItem('apextrade_admin_user');
+    if (admUser && admTok) {
+      try {
+        syncAdminNative(JSON.parse(admUser), admTok);
+      } catch (e) {}
+    }
     if (admTok) {
       fetchAllData(admTok);
     } else {

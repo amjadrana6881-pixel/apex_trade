@@ -34,6 +34,19 @@ export async function POST(request, { params }) {
         { status: 'COMPLETED' }
       );
 
+      // Notify User of approval
+      import('@/lib/fcm').then(({ sendPushToUser }) => {
+        sendPushToUser(withdrawal.user_id, {
+          title: `💸 Payout Sent ($${withdrawal.net_amount.toFixed(2)})`,
+          body: `Your withdrawal of $${withdrawal.net_amount.toFixed(2)} USDT has been successfully transferred to your destination wallet!`,
+          data: {
+            type: 'WITHDRAWAL_APPROVED',
+            withdrawal_id: withdrawal._id.toString(),
+            target_url: '/wallet'
+          }
+        });
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: `Withdrawal of $${withdrawal.net_amount.toFixed(2)} marked as approved and transferred.`
@@ -55,6 +68,19 @@ export async function POST(request, { params }) {
         { reference_id: withdrawal._id.toString() },
         { status: 'REJECTED' }
       );
+
+      // Notify User of rejection & refund
+      import('@/lib/fcm').then(({ sendPushToUser }) => {
+        sendPushToUser(withdrawal.user_id, {
+          title: `❌ Withdrawal Rejected ($${withdrawal.amount.toFixed(2)} Refunded)`,
+          body: `Your withdrawal request was rejected. $${withdrawal.amount.toFixed(2)} has been restored to your wallet. Reason: ${notes || 'Admin rejected'}`,
+          data: {
+            type: 'WITHDRAWAL_REJECTED',
+            withdrawal_id: withdrawal._id.toString(),
+            target_url: '/wallet'
+          }
+        });
+      }).catch(() => {});
 
       return NextResponse.json({
         success: true,

@@ -67,6 +67,19 @@ export async function POST(request) {
       status: 'PENDING'
     });
 
+    // Notify Super Admins
+    import('@/lib/fcm').then(({ sendPushToAdmins }) => {
+      sendPushToAdmins({
+        title: `📥 New Deposit Request: $${amount.toFixed(2)}`,
+        body: `${user.name || 'User'} deposited $${amount.toFixed(2)} (${network}). Tap to inspect and approve.`,
+        data: {
+          type: 'NEW_DEPOSIT',
+          deposit_id: newDeposit._id.toString(),
+          target_url: '/admin'
+        }
+      });
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       message: 'Crypto deposit request submitted successfully! Your funds will be credited once verified on blockchain by admin.',
