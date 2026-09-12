@@ -12,7 +12,7 @@ const TradeSchema = new mongoose.Schema({
   is_signal_trade: { type: Boolean, default: false },
   is_investment_boosted: { type: Boolean, default: false },
   signal_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Signal', default: null },
-  status: { type: String, enum: ['PENDING', 'RESOLVED', 'STOPPED', 'CANCELLED'], default: 'PENDING' },
+  status: { type: String, enum: ['PENDING', 'RESOLVING', 'RESOLVED', 'STOPPED', 'STOPPING', 'CANCELLED'], default: 'PENDING' },
   result: { type: String, enum: ['PENDING', 'WIN', 'LOSS', 'STOPPED'], default: 'PENDING' },
   profit: { type: Number, default: 0 },
   early_stop_fee: { type: Number, default: 0 },

@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: 'Trade not found.' }, { status: 404 });
     }
 
-    if (trade.status === 'RESOLVED') {
+    if (trade.status === 'RESOLVED' || trade.status === 'STOPPED') {
       return NextResponse.json({ success: true, trade });
     }
 
