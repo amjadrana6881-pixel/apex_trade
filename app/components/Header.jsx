@@ -133,6 +133,16 @@ export default function Header() {
             <span>Download App</span>
           </a>
 
+          {/* Live Support Desk Header Button */}
+          <Link
+            href="/contact"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-slate-200 transition-colors shadow-2xs"
+            title="Customer Live Support Desk"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+            <span className="hidden sm:inline font-bold text-xs">Support</span>
+          </Link>
+
           {token ? (
             <>
               {/* Wallet Balance Widget */}
@@ -181,6 +191,11 @@ export default function Header() {
                     <Link href="/assets" className="flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold">
                       <ShieldCheck className="w-4 h-4 text-slate-400" />
                       <span>Portfolio Analytics</span>
+                    </Link>
+
+                    <Link href="/contact" className="flex items-center gap-2 px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold">
+                      <HelpCircle className="w-4 h-4 text-slate-400" />
+                      <span>Live Support Desk</span>
                     </Link>
 
                     {user?.role === 'admin' && (
