@@ -21,7 +21,9 @@ export default function DailySignalCard({ signal }) {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [hasVipBoost, setHasVipBoost] = useState(false);
 
-  const userBal = Number(user?.wallet_balance || 0);
+  const walletBal = Number(user?.wallet_balance || 0);
+  const stakedBal = Number(user?.investment_balance || 0);
+  const totalSignalBal = Number((walletBal + stakedBal).toFixed(2));
   const minCap = Number(signal?.min_capital || 10);
 
   // Check if user has active staking package
@@ -90,14 +92,14 @@ export default function DailySignalCard({ signal }) {
 
   useEffect(() => {
     if (confirmModalOpen) {
-      if (userBal > 0) {
-        setTradeAmount(Math.floor(userBal));
+      if (totalSignalBal > 0) {
+        setTradeAmount(Math.floor(totalSignalBal));
       } else {
         setTradeAmount(minCap);
       }
       setAmountError('');
     }
-  }, [confirmModalOpen, userBal, minCap]);
+  }, [confirmModalOpen, totalSignalBal, minCap]);
 
   if (!signal) return null;
 
@@ -105,11 +107,11 @@ export default function DailySignalCard({ signal }) {
   const numericAmount = Number(tradeAmount) || 0;
 
   const handleSetPercentAmount = (pct) => {
-    if (userBal <= 0) {
+    if (totalSignalBal <= 0) {
       setTradeAmount(10);
       return;
     }
-    const calc = Math.floor((userBal * pct) / 100);
+    const calc = Math.floor((totalSignalBal * pct) / 100);
     setTradeAmount(Math.max(1, calc));
     setAmountError('');
   };
@@ -119,8 +121,8 @@ export default function DailySignalCard({ signal }) {
       setAmountError('Please enter a valid trade amount.');
       return;
     }
-    if (userBal < numericAmount) {
-      setAmountError(`Insufficient wallet balance. You have $${userBal.toFixed(2)} available.`);
+    if (totalSignalBal < numericAmount) {
+      setAmountError(`Insufficient trade balance. You have $${totalSignalBal.toFixed(2)} available${stakedBal > 0 ? ` (includes $${stakedBal.toFixed(2)} Staked Yield)` : ''}.`);
       return;
     }
 
@@ -266,13 +268,25 @@ export default function DailySignalCard({ signal }) {
             <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Trade Balance / Capital (USD)
+                  Signal Trade Capital (USD)
                 </label>
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <span>Balance:</span>
-                  <span className="font-mono font-extrabold text-emerald-600">${userBal.toFixed(2)}</span>
+                  <span className="font-mono font-extrabold text-emerald-600">${totalSignalBal.toFixed(2)}</span>
                 </div>
               </div>
+
+              {stakedBal > 0 && (
+                <div className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-between text-[11px] text-amber-800">
+                  <span className="flex items-center gap-1 font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>VIP Staked Capital Active</span>
+                  </span>
+                  <span className="font-mono font-bold">
+                    Spot: ${walletBal.toFixed(2)} | Staked: ${stakedBal.toFixed(2)}
+                  </span>
+                </div>
+              )}
 
               {/* Amount Input with MAX button */}
               <div className="relative flex items-center">
@@ -282,7 +296,7 @@ export default function DailySignalCard({ signal }) {
                 <input
                   type="number"
                   min="1"
-                  max={userBal}
+                  max={totalSignalBal}
                   step="any"
                   value={tradeAmount}
                   onChange={(e) => {

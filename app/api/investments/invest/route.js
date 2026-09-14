@@ -48,8 +48,10 @@ export async function POST(request) {
     const dailyRoi = Number((totalRoi / durationDays).toFixed(2));
     const dailyProfit = Number(((investAmount * dailyRoi) / 100).toFixed(2));
 
-    // Update user investment balance (wallet balance remains available for trading, but withdrawals are locked)
-    freshUser.investment_balance = (freshUser.investment_balance || 0) + investAmount;
+    // Deduct invested capital from spot wallet and allocate to locked investment balance
+    freshUser.wallet_balance = Math.max(0, Number((freshUser.wallet_balance - investAmount).toFixed(2)));
+    freshUser.tradeable_amount = freshUser.wallet_balance;
+    freshUser.investment_balance = Number(((freshUser.investment_balance || 0) + investAmount).toFixed(2));
     await freshUser.save();
 
     const newInv = await UserInvestment.create({
@@ -72,8 +74,8 @@ export async function POST(request) {
     await Transaction.create({
       user_id: freshUser._id,
       type: 'INVESTMENT',
-      amount: 0, // Ledger entry documenting active package activation
-      description: `Activated ${pkg.name} ($${investAmount.toFixed(2)} for ${durationDays} Days). Expected Return: +${totalRoi}% (+$${expectedProfit.toFixed(2)}) maturing on ${maturesAt.toLocaleDateString()}. VIP Signal boost unlocked!`,
+      amount: -investAmount, // Staked from spot wallet balance
+      description: `Staked in ${pkg.name} ($${investAmount.toFixed(2)} for ${durationDays} Days). Expected Return: +${totalRoi}% (+$${expectedProfit.toFixed(2)}) maturing on ${maturesAt.toLocaleDateString()}. Full capital tradeable on signals with VIP boost!`,
       reference_id: newInv._id.toString(),
       status: 'COMPLETED'
     });

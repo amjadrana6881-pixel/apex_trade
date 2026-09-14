@@ -168,14 +168,16 @@ function TradingContent() {
     { label: '900s (15m)', value: 900 },
   ];
 
-  const userBal = Number(user?.wallet_balance || 0);
+  const walletBal = Number(user?.wallet_balance || 0);
+  const stakedBal = Number(user?.investment_balance || 0);
+  const effectiveTradeBal = Number((walletBal + stakedBal).toFixed(2));
 
   const handleSetPercentAmount = (pct) => {
-    if (userBal <= 0) {
+    if (effectiveTradeBal <= 0) {
       setTradeAmount(10);
       return;
     }
-    const calc = Math.floor((userBal * pct) / 100);
+    const calc = Math.floor((effectiveTradeBal * pct) / 100);
     setTradeAmount(Math.max(1, calc));
   };
 
@@ -212,8 +214,8 @@ function TradingContent() {
       return;
     }
 
-    if (userBal < tradeAmount) {
-      setTradeError(`Insufficient balance. You have $${userBal.toFixed(2)} in your wallet.`);
+    if (effectiveTradeBal < tradeAmount) {
+      setTradeError(`Insufficient balance. You have $${effectiveTradeBal.toFixed(2)} available${stakedBal > 0 ? ` (includes $${stakedBal.toFixed(2)} Staked Yield)` : ''}.`);
       return;
     }
 
@@ -424,8 +426,8 @@ function TradingContent() {
               setSelectedPair(activeSignal.instrument.replace('/', ''));
               setTradeType(activeSignal.order_type);
               setDuration(activeSignal.duration_seconds || 900);
-              if (userBal > 0) {
-                setTradeAmount(Math.floor(userBal));
+              if (effectiveTradeBal > 0) {
+                setTradeAmount(Math.floor(effectiveTradeBal));
               }
               setShowConfirmModal(true);
             }}
@@ -595,8 +597,13 @@ function TradingContent() {
                 <p className="text-[11px] text-slate-500">Real-time settlement • High-frequency options</p>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 font-bold block">Available Balance</span>
-                <span className="text-xs sm:text-sm font-black font-mono text-emerald-600">${userBal.toFixed(2)}</span>
+                <span className="text-[10px] text-slate-400 font-bold block">Tradeable Balance</span>
+                <span className="text-xs sm:text-sm font-black font-mono text-emerald-600">${effectiveTradeBal.toFixed(2)}</span>
+                {stakedBal > 0 && (
+                  <span className="text-[9px] text-amber-600 font-bold block">
+                    (Spot: ${walletBal.toFixed(2)} | Staked: ${stakedBal.toFixed(2)})
+                  </span>
+                )}
               </div>
             </div>
 
@@ -639,7 +646,7 @@ function TradingContent() {
                 <input
                   type="number"
                   min="1"
-                  max={userBal || 999999}
+                  max={effectiveTradeBal || 999999}
                   value={tradeAmount}
                   onChange={(e) => setTradeAmount(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 sm:py-3 text-slate-900 font-mono font-bold text-base sm:text-lg focus:outline-none focus:border-blue-500"
@@ -781,9 +788,21 @@ function TradingContent() {
                 </label>
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <span>Balance:</span>
-                  <span className="font-mono font-extrabold text-emerald-600">${userBal.toFixed(2)}</span>
+                  <span className="font-mono font-extrabold text-emerald-600">${effectiveTradeBal.toFixed(2)}</span>
                 </div>
               </div>
+
+              {stakedBal > 0 && (
+                <div className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-between text-[11px] text-amber-800">
+                  <span className="flex items-center gap-1 font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>VIP Staked Capital Active</span>
+                  </span>
+                  <span className="font-mono font-bold">
+                    Spot: ${walletBal.toFixed(2)} | Staked: ${stakedBal.toFixed(2)}
+                  </span>
+                </div>
+              )}
 
               {/* Amount Input with MAX button */}
               <div className="relative flex items-center">
@@ -793,7 +812,7 @@ function TradingContent() {
                 <input
                   type="number"
                   min="1"
-                  max={userBal}
+                  max={effectiveTradeBal}
                   step="any"
                   value={tradeAmount}
                   onChange={(e) => {

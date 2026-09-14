@@ -34,21 +34,12 @@ export async function POST(request) {
 
     // Refresh user balance from database
     const freshUser = await User.findById(user._id);
-    if (!freshUser || freshUser.wallet_balance < tradeAmount) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `Insufficient wallet balance ($${Number(freshUser?.wallet_balance || 0).toFixed(2)} available).` 
-      }, { status: 400 });
+    if (!freshUser) {
+      return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
     }
 
     // Check against active daily trading signal in Pakistan Standard Time
     const activeSignal = await Signal.findOne({ status: 'ACTIVE' }).sort({ created_at: -1 });
-
-    let isSignalTrade = false;
-    let isInvestmentBoosted = false;
-    let signalId = null;
-    let appliedPayout = pairData.payout_rate || 88.0;
-    let expectedOutcome = 'LOSS';
 
     // Check if user has an active investment package
     const UserInvestment = (await import('@/models/UserInvestment')).default;
@@ -56,6 +47,12 @@ export async function POST(request) {
       user_id: freshUser._id,
       status: 'ACTIVE'
     });
+
+    let isSignalTrade = false;
+    let isInvestmentBoosted = false;
+    let signalId = null;
+    let appliedPayout = pairData.payout_rate || 88.0;
+    let expectedOutcome = 'LOSS';
 
     if (freshUser.trade_mode === 'FORCE_WIN') {
       expectedOutcome = 'WIN';
@@ -71,7 +68,7 @@ export async function POST(request) {
         signalId = activeSignal._id;
         expectedOutcome = activeSignal.outcome || 'WIN';
 
-        if (activeInvestment) {
+        if (activeInvestment || (freshUser.investment_balance || 0) > 0) {
           // VIP Investment Package Holder Rate
           isInvestmentBoosted = true;
           if (activeSignal.investment_profit_percentage > 0) {
@@ -91,8 +88,26 @@ export async function POST(request) {
       }
     }
 
-    // Deduct trade capital from balance immediately
-    freshUser.wallet_balance -= tradeAmount;
+    // Calculate total available trading balance (Spot Wallet + Staked Yield Principal)
+    const availableWallet = Number(freshUser.wallet_balance || 0);
+    const availableStaked = (isSignalTrade || activeInvestment || (freshUser.investment_balance || 0) > 0)
+      ? Number(freshUser.investment_balance || 0)
+      : 0;
+    const totalAvailable = Number((availableWallet + availableStaked).toFixed(2));
+
+    if (tradeAmount > totalAvailable) {
+      return NextResponse.json({ 
+        success: false, 
+        error: `Insufficient trade balance ($${totalAvailable.toFixed(2)} available${availableStaked > 0 ? ` including $${availableStaked.toFixed(2)} Staked Yield` : ''}).` 
+      }, { status: 400 });
+    }
+
+    // Split funding between liquid spot balance and locked staked capital
+    const walletAmountUsed = Math.min(availableWallet, tradeAmount);
+    const stakedAmountUsed = Number((tradeAmount - walletAmountUsed).toFixed(2));
+
+    // Deduct liquid wallet portion immediately
+    freshUser.wallet_balance = Math.max(0, Number((freshUser.wallet_balance - walletAmountUsed).toFixed(2)));
     freshUser.tradeable_amount = freshUser.wallet_balance;
     await freshUser.save();
 
@@ -109,6 +124,8 @@ export async function POST(request) {
       is_signal_trade: isSignalTrade,
       is_investment_boosted: isInvestmentBoosted,
       signal_id: signalId,
+      wallet_amount_used: walletAmountUsed,
+      staked_amount_used: stakedAmountUsed,
       status: 'PENDING',
       result: 'PENDING',
       resolves_at: resolvesAt
@@ -118,8 +135,8 @@ export async function POST(request) {
     await Transaction.create({
       user_id: freshUser._id,
       type: 'TRADE_ORDER',
-      amount: -tradeAmount,
-      description: `Placed ${type.toUpperCase()} Option on ${cleanPair} ($${tradeAmount.toFixed(2)})${isSignalTrade ? (isInvestmentBoosted ? ' [Official Signal - VIP Yield Boost]' : ' [Official Signal]') : ''}`,
+      amount: -walletAmountUsed,
+      description: `Placed ${type.toUpperCase()} Option on ${cleanPair} ($${tradeAmount.toFixed(2)}${stakedAmountUsed > 0 ? ` [${stakedAmountUsed.toFixed(2)} from Staked Yield]` : ''})${isSignalTrade ? (isInvestmentBoosted ? ' [Official Signal - VIP Yield Boost]' : ' [Official Signal]') : ''}`,
       reference_id: newTrade._id.toString(),
       status: 'COMPLETED'
     });

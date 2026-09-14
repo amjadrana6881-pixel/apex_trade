@@ -19,6 +19,8 @@ const TradeSchema = new mongoose.Schema({
   refunded_amount: { type: Number, default: 0 },
   penalty_percentage: { type: Number, default: 0 },
   stopped_early: { type: Boolean, default: false },
+  wallet_amount_used: { type: Number, default: 0 },
+  staked_amount_used: { type: Number, default: 0 },
   resolves_at: { type: Date, required: true },
   created_at: { type: Date, default: Date.now }
 });

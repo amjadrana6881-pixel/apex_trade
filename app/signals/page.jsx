@@ -99,7 +99,7 @@ export default function SignalsHubPage() {
             </div>
             <h3 className="font-extrabold text-slate-900 text-base">Dual-Tier Return Architecture</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Standard traders earn base signal yield. Subscribing to an active Yield Staking plan automatically boosts signal returns up to <strong className="text-amber-700 font-bold">+8.50%+</strong>!
+              Standard traders earn base signal yield. Subscribing to an active Yield Staking plan automatically boosts signal returns to the official boosted VIP rate!
             </p>
           </div>
         </div>

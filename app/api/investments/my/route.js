@@ -33,16 +33,18 @@ export async function GET(request) {
           inv.total_profit_earned = profit;
           await inv.save();
 
-          freshUser.wallet_balance += profit;
+          // Return original staked principal + profit back to user's spot wallet
+          const returnTotal = Number((inv.amount + profit).toFixed(2));
+          freshUser.wallet_balance = Number((freshUser.wallet_balance + returnTotal).toFixed(2));
           freshUser.tradeable_amount = freshUser.wallet_balance;
-          freshUser.investment_balance = Math.max(0, (freshUser.investment_balance || 0) - inv.amount);
+          freshUser.investment_balance = Math.max(0, Number(((freshUser.investment_balance || 0) - inv.amount).toFixed(2)));
           userUpdated = true;
 
           await Transaction.create({
             user_id: freshUser._id,
             type: 'INVESTMENT_PROFIT',
-            amount: profit,
-            description: `🎉 Yield Package Matured: ${inv.package_name} (+${inv.total_roi}% ROI profit credited to wallet)`,
+            amount: returnTotal,
+            description: `🎉 Yield Package Matured: ${inv.package_name} (+$${inv.amount.toFixed(2)} principal + $${profit.toFixed(2)} ROI profit [${inv.total_roi}%] credited to wallet)`,
             reference_id: inv._id.toString(),
             status: 'COMPLETED'
           });
@@ -50,8 +52,8 @@ export async function GET(request) {
           // Send Push Notification for payout
           try {
             await sendPushToUser(freshUser._id, {
-              title: `💰 Investment Package Matured (+ $${profit.toFixed(2)})!`,
-              body: `Your ${inv.package_name} has completed. $${profit.toFixed(2)} net profit has been added to your wallet!`,
+              title: `💰 Investment Package Matured (+ $${returnTotal.toFixed(2)})!`,
+              body: `Your ${inv.package_name} has completed. $${returnTotal.toFixed(2)} ($${inv.amount.toFixed(2)} principal + $${profit.toFixed(2)} profit) has been credited to your wallet!`,
               data: {
                 type: 'INVESTMENT_MATURED',
                 investment_id: inv._id.toString(),

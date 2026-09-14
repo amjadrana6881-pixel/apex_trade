@@ -214,9 +214,9 @@ export default function InvestmentsPage() {
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 space-y-1.5">
             <span className="w-6 h-6 rounded-full bg-amber-500 text-white font-black flex items-center justify-center text-xs">2</span>
-            <h4 className="font-bold text-white text-sm">Trade Freely with Full Balance</h4>
+            <h4 className="font-bold text-white text-sm">Full Capital Tradeable on Signals</h4>
             <p className="text-slate-300 text-[11px] leading-relaxed">
-              Your wallet balance is NOT taken away! You can still trade everyday with your full capital.
+              Your staked capital is locked from withdrawal, but remains 100% tradeable everyday on official daily signals!
             </p>
           </div>
 
@@ -224,15 +224,15 @@ export default function InvestmentsPage() {
             <span className="w-6 h-6 rounded-full bg-emerald-500 text-white font-black flex items-center justify-center text-xs">3</span>
             <h4 className="font-bold text-white text-sm">VIP Signal Profit Boost</h4>
             <p className="text-slate-300 text-[11px] leading-relaxed">
-              While your plan is active, every daily signal trade pays out at the higher VIP rate!
+              While your plan is active, daily signal trades pay out at the higher VIP rate and profits go straight to your spot wallet!
             </p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 space-y-1.5">
             <span className="w-6 h-6 rounded-full bg-purple-500 text-white font-black flex items-center justify-center text-xs">4</span>
-            <h4 className="font-bold text-white text-sm">Maturity Payout</h4>
+            <h4 className="font-bold text-white text-sm">Principal + Maturity Payout</h4>
             <p className="text-slate-300 text-[11px] leading-relaxed">
-              Upon maturity, guaranteed yield profit is credited to your wallet and withdrawal locks are released.
+              Upon maturity, your full staked principal + guaranteed yield ROI is returned to your spot wallet and withdrawal locks are released.
             </p>
           </div>
         </div>
@@ -452,9 +452,10 @@ export default function InvestmentsPage() {
                 <span>Guaranteed Liquidity & Trading Rules:</span>
               </p>
               <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-blue-800/90">
-                <li>Your full wallet balance remains available to execute daily trading signals.</li>
-                <li>Withdrawals are locked during the {selectedPkg.duration_days}-day active term to guarantee yield.</li>
-                <li>On day {selectedPkg.duration_days}, +${Number((investAmount * selectedPkg.total_return_roi) / 100).toFixed(2)} (+{selectedPkg.total_return_roi}%) profit is automatically deposited to your wallet.</li>
+                <li>Your staked capital remains 100% active and tradeable everyday on official daily signals with VIP profit boost.</li>
+                <li>Daily signal trading profits are credited directly into your spot wallet balance.</li>
+                <li>Direct withdrawals are locked during the {selectedPkg.duration_days}-day term to preserve yield generation.</li>
+                <li>On day {selectedPkg.duration_days}, your full principal ($${Number(investAmount).toFixed(2)}) + $${Number((investAmount * selectedPkg.total_return_roi) / 100).toFixed(2)} (+{selectedPkg.total_return_roi}%) profit is deposited into your wallet.</li>
               </ul>
             </div>
           </form>
