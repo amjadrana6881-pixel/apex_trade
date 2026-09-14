@@ -18,8 +18,7 @@ import {
   ReceiptText,
   UserCheck,
   Calendar,
-  Zap,
-  Filter
+  Zap
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 import { formatPKT, getPakistanDateString } from '@/lib/timeUtils';
@@ -89,11 +88,13 @@ export default function ReferralTreePage() {
     thisMonthCommissions: 0,
     totalCommissions: 0,
     cumulativeCommissions: 0,
-    todayTeamVolume: 0,
-    yesterdayTeamVolume: 0,
-    thisMonthTeamVolume: 0,
+    todayTeamTradeVolume: 0,
+    totalTeamTradeVolume: 0,
+    todayTeamTradeProfit: 0,
+    totalTeamTradeProfit: 0,
+    todayTeamDepositVolume: 0,
+    totalTeamDepositVolume: 0,
     totalTeamVolume: 0,
-    cumulativeTeamVolume: 0,
     tier1: { count: data?.directCount || 0, volume: 0, commissions: 0, rate: 10 },
     tier2: { count: data?.tree?.level2?.length || 0, volume: 0, commissions: 0, rate: 5 },
     tier3: { count: data?.tree?.level3?.length || 0, volume: 0, commissions: 0, rate: 2 }
@@ -122,10 +123,10 @@ export default function ReferralTreePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Affiliate Network & Commission Hub
+            Affiliate Network & Daily Trade Profit Sharing
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Track your team performance, daily commission earnings, and 3-tier lifetime deposit turnover.
+            Earn 3-tier lifetime commissions whenever your team members execute winning daily signal trades!
           </p>
         </div>
 
@@ -167,8 +168,8 @@ export default function ReferralTreePage() {
                 <DollarSign className="w-4 h-4" />
               </span>
               <div>
-                <h3 className="text-sm font-extrabold text-white">Affiliate Commission Performance</h3>
-                <p className="text-[11px] text-slate-400">All earnings are credited instantly to your Spot Wallet</p>
+                <h3 className="text-sm font-extrabold text-white">Daily Trade Profit Commission Overview</h3>
+                <p className="text-[11px] text-slate-400">Commissions earned from your team's daily winning trade profits</p>
               </div>
             </div>
 
@@ -184,7 +185,7 @@ export default function ReferralTreePage() {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
                   <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Today's Earnings</span>
+                  <span>Today's Profit Share</span>
                 </span>
                 <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase">
                   TODAY
@@ -194,7 +195,7 @@ export default function ReferralTreePage() {
                 +${Number(summary.todayCommissions || 0).toFixed(2)}
               </p>
               <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                From today's team deposits
+                From today's winning trades
               </p>
             </div>
 
@@ -206,14 +207,14 @@ export default function ReferralTreePage() {
                   <span>Yesterday</span>
                 </span>
                 <span className="px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 text-[9px] font-black uppercase">
-                  CLOSED
+                  FINALIZED
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black font-mono text-white mt-1">
                 +${Number(summary.yesterdayCommissions || 0).toFixed(2)}
               </p>
               <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                Yesterday's total bonus
+                Yesterday's trade profit share
               </p>
             </div>
 
@@ -232,7 +233,7 @@ export default function ReferralTreePage() {
                 +${Number(summary.thisMonthCommissions || 0).toFixed(2)}
               </p>
               <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                Current month total
+                Current month accumulated
               </p>
             </div>
 
@@ -251,53 +252,53 @@ export default function ReferralTreePage() {
                 ${Number(summary.totalCommissions || 0).toFixed(2)}
               </p>
               <p className="text-[10px] text-emerald-200/80 mt-0.5 font-medium">
-                Total lifetime commissions
+                Total lifetime profit earnings
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* SECTION 2: TEAM VOLUME & NETWORK STATS CARDS */}
+      {/* SECTION 2: TEAM TRADING VOLUME & NETWORK STATS CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today's Team Volume */}
+        {/* Today's Team Trading Volume */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs relative overflow-hidden">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-                <span>Today's Turnover</span>
+                <span>Today's Trade Volume</span>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-extrabold border border-blue-200">
                 TODAY
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 pt-1">
-              ${Number(summary.todayTeamVolume || 0).toFixed(2)}
+              ${Number(summary.todayTeamTradeVolume || 0).toFixed(2)}
             </p>
             <p className="text-[11px] text-slate-400 font-medium">
-              Today's downline deposits
+              Daily trade positions placed
             </p>
           </div>
         </div>
 
-        {/* Total Cumulative Team Volume */}
+        {/* Total Cumulative Trade Profits Won by Team */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs relative overflow-hidden">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                <span>All-Time Volume</span>
+                <span>Team Profits Won</span>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-200">
                 3 TIERS
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 pt-1">
-              ${Number(summary.totalTeamVolume || 0).toFixed(2)}
+              ${Number(summary.totalTeamTradeProfit || 0).toFixed(2)}
             </p>
             <p className="text-[11px] text-slate-400 font-medium">
-              Cumulative network turnover
+              Total profits won by downlines
             </p>
           </div>
         </div>
@@ -352,16 +353,16 @@ export default function ReferralTreePage() {
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-black text-blue-700 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                3-TIER AFFILIATE COMMISSION PROGRAM
+                3-TIER DAILY TRADE PROFIT SHARE PROGRAM
               </span>
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Invite Traders & Earn Lifetime Commissions
+              Invite Traders & Earn Daily Trade Profit Commissions
             </h2>
 
             <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-              Earn <strong className="text-emerald-600">10% Tier 1</strong> direct bonus + <strong className="text-blue-600">5% Tier 2</strong> + <strong className="text-purple-600">2% Tier 3</strong> instant commissions on every single deposit made by your network.
+              Earn <strong className="text-emerald-600">10% Tier 1</strong> direct profit share + <strong className="text-blue-600">5% Tier 2</strong> + <strong className="text-purple-600">2% Tier 3</strong> instant recurring commissions on every winning daily trade executed by your network!
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -404,19 +405,19 @@ export default function ReferralTreePage() {
           </div>
           <div className="flex items-baseline gap-2">
             <p className="text-3xl font-black font-mono text-slate-900">10%</p>
-            <span className="text-xs font-bold text-slate-400">Commission Rate</span>
+            <span className="text-xs font-bold text-slate-400">Trade Profit Share</span>
           </div>
           <p className="text-xs text-slate-500">
-            Earn 10% instantly on all deposits made by users directly registered with your code.
+            Earn 10% instantly on all daily trading profits won by users registered directly with your code.
           </p>
           <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
             <span className="text-slate-500 font-medium">Direct Members:</span>
             <span className="font-extrabold text-slate-900 font-mono">{summary.tier1.count} Members</span>
           </div>
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500 font-medium">Volume / Earned:</span>
-            <span className="font-bold text-emerald-600 font-mono">
-              ${summary.tier1.volume.toFixed(2)} / <strong className="font-extrabold text-emerald-700">${summary.tier1.commissions.toFixed(2)}</strong>
+            <span className="text-slate-500 font-medium">Commissions Earned:</span>
+            <span className="font-extrabold text-emerald-700 font-mono text-sm">
+              +${summary.tier1.commissions.toFixed(2)}
             </span>
           </div>
         </div>
@@ -431,19 +432,19 @@ export default function ReferralTreePage() {
           </div>
           <div className="flex items-baseline gap-2">
             <p className="text-3xl font-black font-mono text-slate-900">5%</p>
-            <span className="text-xs font-bold text-slate-400">Commission Rate</span>
+            <span className="text-xs font-bold text-slate-400">Trade Profit Share</span>
           </div>
           <p className="text-xs text-slate-500">
-            Earn 5% on all deposits made by referrals invited by your direct members.
+            Earn 5% on all daily trading profits won by referrals invited by your direct members.
           </p>
           <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
             <span className="text-slate-500 font-medium">Tier 2 Downlines:</span>
             <span className="font-extrabold text-slate-900 font-mono">{summary.tier2.count} Members</span>
           </div>
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500 font-medium">Volume / Earned:</span>
-            <span className="font-bold text-blue-600 font-mono">
-              ${summary.tier2.volume.toFixed(2)} / <strong className="font-extrabold text-blue-700">${summary.tier2.commissions.toFixed(2)}</strong>
+            <span className="text-slate-500 font-medium">Commissions Earned:</span>
+            <span className="font-extrabold text-blue-700 font-mono text-sm">
+              +${summary.tier2.commissions.toFixed(2)}
             </span>
           </div>
         </div>
@@ -458,19 +459,19 @@ export default function ReferralTreePage() {
           </div>
           <div className="flex items-baseline gap-2">
             <p className="text-3xl font-black font-mono text-slate-900">2%</p>
-            <span className="text-xs font-bold text-slate-400">Commission Rate</span>
+            <span className="text-xs font-bold text-slate-400">Trade Profit Share</span>
           </div>
           <p className="text-xs text-slate-500">
-            Earn 2% passive recurring commission across your extended 3rd-tier team.
+            Earn 2% passive recurring commission across your extended 3rd-tier team's winning trade profits.
           </p>
           <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
             <span className="text-slate-500 font-medium">Tier 3 Downlines:</span>
             <span className="font-extrabold text-slate-900 font-mono">{summary.tier3.count} Members</span>
           </div>
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500 font-medium">Volume / Earned:</span>
-            <span className="font-bold text-purple-600 font-mono">
-              ${summary.tier3.volume.toFixed(2)} / <strong className="font-extrabold text-purple-700">${summary.tier3.commissions.toFixed(2)}</strong>
+            <span className="text-slate-500 font-medium">Commissions Earned:</span>
+            <span className="font-extrabold text-purple-700 font-mono text-sm">
+              +${summary.tier3.commissions.toFixed(2)}
             </span>
           </div>
         </div>
@@ -482,10 +483,10 @@ export default function ReferralTreePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
-                Referral Downline Explorer & Commission Attribution
+                Referral Downline Explorer & Trade Profit Attribution
               </h2>
               <p className="text-xs text-slate-500">
-                View team members, their deposited volume, and exact commissions earned from each trader.
+                View team members, their trade profits, and exact commission shares credited to your account.
               </p>
             </div>
 
@@ -529,7 +530,7 @@ export default function ReferralTreePage() {
                     <th className="py-3 px-4">Member Name</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Referral Code</th>
-                    <th className="py-3 px-4">Total Deposited</th>
+                    <th className="py-3 px-4">Trade Profits Won</th>
                     <th className="py-3 px-4">Commission Earned</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Join Date</th>
@@ -557,10 +558,10 @@ export default function ReferralTreePage() {
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
-                        ${Number(m.totalDeposited || 0).toFixed(2)}
-                        {m.depositCount > 0 && (
-                          <span className="text-[10px] text-slate-400 block font-sans">
-                            {m.depositCount} deposit{m.depositCount > 1 ? 's' : ''}
+                        ${Number(m.totalTradeProfit || 0).toFixed(2)}
+                        {m.tradeCount > 0 && (
+                          <span className="text-[10px] text-emerald-600 block font-sans font-bold">
+                            {m.tradeCount} winning trade{m.tradeCount > 1 ? 's' : ''}
                           </span>
                         )}
                       </td>
@@ -601,10 +602,10 @@ export default function ReferralTreePage() {
             <div>
               <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <ReceiptText className="w-5 h-5 text-blue-600" />
-                <span>Affiliate Commission Earnings Ledger</span>
+                <span>Daily Trade Profit Commission Ledger</span>
               </h2>
               <p className="text-xs text-slate-500">
-                Detailed audit trail of all affiliate bonuses credited to your spot wallet from team activities.
+                Detailed audit trail of all trade profit commissions credited to your spot wallet.
               </p>
             </div>
 
@@ -636,7 +637,7 @@ export default function ReferralTreePage() {
               <DollarSign className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <p className="font-semibold text-sm">No commission transactions found for this timeframe.</p>
               <p className="text-xs text-slate-400 mt-1">
-                When your downline members make approved deposits, your commissions will appear here instantly!
+                When your downline members win their daily trades, your commissions will appear here instantly!
               </p>
             </div>
           ) : (
@@ -647,7 +648,7 @@ export default function ReferralTreePage() {
                     <th className="py-3 px-4">Date & Time (PKT)</th>
                     <th className="py-3 px-4">Source Member</th>
                     <th className="py-3 px-4">Affiliate Tier</th>
-                    <th className="py-3 px-4">Source Deposit</th>
+                    <th className="py-3 px-4">Source Activity</th>
                     <th className="py-3 px-4">Commission Paid</th>
                     <th className="py-3 px-4">Status</th>
                   </tr>
@@ -686,7 +687,9 @@ export default function ReferralTreePage() {
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
-                        {tx.depositAmount > 0 ? `$${tx.depositAmount.toFixed(2)}` : '—'}
+                        {tx.activityAmount > 0 
+                          ? `$${tx.activityAmount.toFixed(2)} ${tx.activityType === 'TRADE_PROFIT' ? 'Trade Profit' : 'Deposit'}` 
+                          : 'Daily Trade Profit'}
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -721,7 +724,7 @@ export default function ReferralTreePage() {
               Instant Liquidity & Spot Wallet Balance Guarantee
             </h4>
             <p className="text-xs text-slate-400 mt-0.5">
-              All 3-Tier referral bonuses are credited immediately as liquid capital to your Spot Wallet. You can trade or withdraw these earnings anytime.
+              All 3-Tier trade profit commissions are credited instantly as liquid capital to your Spot Wallet. You can trade or withdraw these earnings anytime.
             </p>
           </div>
         </div>

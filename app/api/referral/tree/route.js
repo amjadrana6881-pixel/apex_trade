@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import Deposit from '@/models/Deposit';
+import Trade from '@/models/Trade';
 import { getPakistanDate, getPakistanDateString } from '@/lib/timeUtils';
 
 function maskEmail(email) {
@@ -64,15 +65,20 @@ export async function GET(request) {
       ? await Deposit.find({ user_id: { $in: allMemberIds }, status: 'APPROVED' })
       : [];
 
-    // Map depositId -> deposit object & calculate per-user deposits and daily volumes
+    // Fetch all winning trades placed by downline members
+    const memberTrades = allMemberIds.length > 0
+      ? await Trade.find({ user_id: { $in: allMemberIds } })
+      : [];
+
+    // Map depositId -> deposit object
     const depositMap = new Map();
-    const memberDepositsMap = new Map(); // userId -> total approved deposit amount
+    const memberDepositsMap = new Map();
     const memberDepositCountMap = new Map();
 
-    let todayTeamVolume = 0;
-    let yesterdayTeamVolume = 0;
-    let thisMonthTeamVolume = 0;
-    let totalTeamVolume = 0;
+    let todayTeamDepositVolume = 0;
+    let yesterdayTeamDepositVolume = 0;
+    let thisMonthTeamDepositVolume = 0;
+    let totalTeamDepositVolume = 0;
 
     memberDeposits.forEach(dep => {
       depositMap.set(dep._id.toString(), dep);
@@ -81,15 +87,50 @@ export async function GET(request) {
       memberDepositsMap.set(uId, (memberDepositsMap.get(uId) || 0) + depAmt);
       memberDepositCountMap.set(uId, (memberDepositCountMap.get(uId) || 0) + 1);
 
-      totalTeamVolume += depAmt;
+      totalTeamDepositVolume += depAmt;
       const depDateStr = getPakistanDateString(new Date(dep.created_at));
       if (depDateStr === todayDateStr) {
-        todayTeamVolume += depAmt;
+        todayTeamDepositVolume += depAmt;
       } else if (depDateStr === yesterdayDateStr) {
-        yesterdayTeamVolume += depAmt;
+        yesterdayTeamDepositVolume += depAmt;
       }
       if (depDateStr.startsWith(currentMonthStr)) {
-        thisMonthTeamVolume += depAmt;
+        thisMonthTeamDepositVolume += depAmt;
+      }
+    });
+
+    // Map tradeId -> trade object & calculate member trade profits
+    const tradeMap = new Map();
+    const memberTradeProfitMap = new Map();
+    const memberTradeVolumeMap = new Map();
+    const memberTradeCountMap = new Map();
+
+    let todayTeamTradeVolume = 0;
+    let totalTeamTradeVolume = 0;
+    let todayTeamTradeProfit = 0;
+    let totalTeamTradeProfit = 0;
+
+    memberTrades.forEach(tr => {
+      tradeMap.set(tr._id.toString(), tr);
+      const uId = tr.user_id.toString();
+      const trAmt = Number(tr.amount || 0);
+      const trProfit = Number(tr.profit || 0);
+
+      memberTradeVolumeMap.set(uId, (memberTradeVolumeMap.get(uId) || 0) + trAmt);
+      totalTeamTradeVolume += trAmt;
+
+      if (tr.result === 'WIN' && trProfit > 0) {
+        memberTradeProfitMap.set(uId, (memberTradeProfitMap.get(uId) || 0) + trProfit);
+        memberTradeCountMap.set(uId, (memberTradeCountMap.get(uId) || 0) + 1);
+        totalTeamTradeProfit += trProfit;
+      }
+
+      const trDateStr = getPakistanDateString(new Date(tr.created_at));
+      if (trDateStr === todayDateStr) {
+        todayTeamTradeVolume += trAmt;
+        if (tr.result === 'WIN' && trProfit > 0) {
+          todayTeamTradeProfit += trProfit;
+        }
       }
     });
 
@@ -111,7 +152,8 @@ export async function GET(request) {
       let sourceUserId = null;
       let sourceUserName = 'Downline Trader';
       let sourceUserEmail = '';
-      let depositAmount = 0;
+      let activityType = 'TRADE_PROFIT'; // 'TRADE_PROFIT' | 'DEPOSIT'
+      let activityAmount = 0;
       let tierLevel = 1;
       const txAmt = Number(tx.amount || 0);
 
@@ -126,11 +168,19 @@ export async function GET(request) {
         thisMonthCommissions += txAmt;
       }
 
+      // Check if reference_id matches a trade record
+      if (tx.reference_id && tradeMap.has(tx.reference_id)) {
+        const tr = tradeMap.get(tx.reference_id);
+        sourceUserId = tr.user_id.toString();
+        activityType = 'TRADE_PROFIT';
+        activityAmount = Number(tr.profit || 0);
+      }
       // Check if reference_id matches an approved deposit
-      if (tx.reference_id && depositMap.has(tx.reference_id)) {
+      else if (tx.reference_id && depositMap.has(tx.reference_id)) {
         const dep = depositMap.get(tx.reference_id);
         sourceUserId = dep.user_id.toString();
-        depositAmount = Number(dep.amount || 0);
+        activityType = 'DEPOSIT';
+        activityAmount = Number(dep.amount || 0);
       }
 
       // Try matching by member in our downline
@@ -141,25 +191,25 @@ export async function GET(request) {
           sourceUserEmail = maskEmail(m.email);
         }
       } else {
-        // Fallback: parse name from description e.g. "Level 1 Commission from Amir javed deposit ($100)"
-        const match = tx.description?.match(/from\s+(.*?)\s+deposit/i);
+        // Fallback: parse name from description e.g. "Tier 1 Trade Profit Commission from Amir javed"
+        const match = tx.description?.match(/from\s+(.*?)(?:\s+\(|$)/i);
         if (match && match[1]) {
-          const parsedName = match[1].trim();
+          const parsedName = match[1].replace(/deposit|trade|profit/gi, '').trim();
           const m = allMembers.find(mem => mem.name?.toLowerCase() === parsedName.toLowerCase());
           if (m) {
             sourceUserId = m._id.toString();
             sourceUserName = m.name;
             sourceUserEmail = maskEmail(m.email);
           } else {
-            sourceUserName = parsedName;
+            sourceUserName = parsedName || 'Downline Trader';
           }
         }
       }
 
       // Detect tier level from description
-      if (tx.description?.includes('Level 2') || tx.description?.includes('Tier 2')) {
+      if (tx.description?.includes('Tier 2') || tx.description?.includes('Level 2')) {
         tierLevel = 2;
-      } else if (tx.description?.includes('Level 3') || tx.description?.includes('Tier 3')) {
+      } else if (tx.description?.includes('Tier 3') || tx.description?.includes('Level 3')) {
         tierLevel = 3;
       } else {
         tierLevel = 1;
@@ -181,7 +231,8 @@ export async function GET(request) {
         status: tx.status,
         created_at: tx.created_at,
         tier: tierLevel,
-        depositAmount,
+        activityType,
+        activityAmount,
         sourceUser: {
           id: sourceUserId,
           name: sourceUserName,
@@ -195,11 +246,15 @@ export async function GET(request) {
       const uId = m._id.toString();
       const totalDeposited = Number((memberDepositsMap.get(uId) || 0).toFixed(2));
       const depositCount = memberDepositCountMap.get(uId) || 0;
+      const totalTradeProfit = Number((memberTradeProfitMap.get(uId) || 0).toFixed(2));
+      const totalTradeVolume = Number((memberTradeVolumeMap.get(uId) || 0).toFixed(2));
+      const tradeCount = memberTradeCountMap.get(uId) || 0;
+
       let commissionEarned = Number((memberCommissionMap.get(uId) || 0).toFixed(2));
 
-      // If no direct bonus tx was matched yet but member has deposits, calculate based on tier pct
-      if (commissionEarned === 0 && totalDeposited > 0) {
-        commissionEarned = Number(((totalDeposited * defaultPct) / 100).toFixed(2));
+      // If no direct bonus tx was matched yet but member has trade profits, calculate based on tier pct
+      if (commissionEarned === 0 && totalTradeProfit > 0) {
+        commissionEarned = Number(((totalTradeProfit * defaultPct) / 100).toFixed(2));
       }
 
       return {
@@ -214,6 +269,9 @@ export async function GET(request) {
         tierRatePct: defaultPct,
         totalDeposited,
         depositCount,
+        totalTradeProfit,
+        totalTradeVolume,
+        tradeCount,
         commissionEarned
       };
     };
@@ -222,9 +280,9 @@ export async function GET(request) {
     const enrichedL2 = level2.map(m => enrichMember(m, 2, 5));
     const enrichedL3 = level3.map(m => enrichMember(m, 3, 2));
 
-    const tier1Volume = Number(enrichedL1.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
-    const tier2Volume = Number(enrichedL2.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
-    const tier3Volume = Number(enrichedL3.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
+    const tier1Volume = Number(enrichedL1.reduce((sum, m) => sum + m.totalTradeProfit || m.totalDeposited, 0).toFixed(2));
+    const tier2Volume = Number(enrichedL2.reduce((sum, m) => sum + m.totalTradeProfit || m.totalDeposited, 0).toFixed(2));
+    const tier3Volume = Number(enrichedL3.reduce((sum, m) => sum + m.totalTradeProfit || m.totalDeposited, 0).toFixed(2));
 
     const tier1Commissions = Number(enrichedL1.reduce((sum, m) => sum + m.commissionEarned, 0).toFixed(2));
     const tier2Commissions = Number(enrichedL2.reduce((sum, m) => sum + m.commissionEarned, 0).toFixed(2));
@@ -237,19 +295,23 @@ export async function GET(request) {
         directCount: level1.length,
         totalTeamCount: level1.length + level2.length + level3.length,
         summary: {
-          // Time-sliced Commission Earnings
+          // Time-sliced Commission Earnings from Daily Trade Profits
           todayCommissions: Number(todayCommissions.toFixed(2)),
           yesterdayCommissions: Number(yesterdayCommissions.toFixed(2)),
           thisMonthCommissions: Number(thisMonthCommissions.toFixed(2)),
           totalCommissions: Number(totalCommissions.toFixed(2)),
           cumulativeCommissions: Number(totalCommissions.toFixed(2)),
 
-          // Time-sliced Team Deposit Volumes
-          todayTeamVolume: Number(todayTeamVolume.toFixed(2)),
-          yesterdayTeamVolume: Number(yesterdayTeamVolume.toFixed(2)),
-          thisMonthTeamVolume: Number(thisMonthTeamVolume.toFixed(2)),
-          totalTeamVolume: Number(totalTeamVolume.toFixed(2)),
-          cumulativeTeamVolume: Number(totalTeamVolume.toFixed(2)),
+          // Team Trading Volume & Profit Turnover
+          todayTeamTradeVolume: Number(todayTeamTradeVolume.toFixed(2)),
+          totalTeamTradeVolume: Number(totalTeamTradeVolume.toFixed(2)),
+          todayTeamTradeProfit: Number(todayTeamTradeProfit.toFixed(2)),
+          totalTeamTradeProfit: Number(totalTeamTradeProfit.toFixed(2)),
+
+          // Team Deposit Turnover
+          todayTeamDepositVolume: Number(todayTeamDepositVolume.toFixed(2)),
+          totalTeamDepositVolume: Number(totalTeamDepositVolume.toFixed(2)),
+          totalTeamVolume: Number((totalTeamDepositVolume + totalTeamTradeVolume).toFixed(2)),
 
           // Tier Breakdown
           tier1: { count: level1.length, volume: tier1Volume, commissions: tier1Commissions, rate: 10 },
