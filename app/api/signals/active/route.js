@@ -2,19 +2,33 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import Signal from '@/models/Signal';
 import Trade from '@/models/Trade';
-import { autoExpirePastSignals, getSignalTimeWindow } from '@/lib/timeUtils';
-import { verifyToken } from '@/lib/auth';
+import { getSignalTimeWindow, isSignalExpired } from '@/lib/timeUtils';
+import { verifyJwtToken } from '@/lib/auth';
 import { checkAndTriggerSignalCountdownAlerts } from '@/lib/signalCountdownNotifier';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+async function autoExpirePastSignalsServer() {
+  try {
+    const activeSignals = await Signal.find({ status: 'ACTIVE' });
+    for (const sig of activeSignals) {
+      if (isSignalExpired(sig)) {
+        sig.status = 'EXPIRED';
+        await sig.save();
+      }
+    }
+  } catch (err) {
+    console.error('Error in autoExpirePastSignalsServer:', err);
+  }
+}
 
 export async function GET(request) {
   try {
     await connectToDatabase();
     
     // 1. Auto-expire any past signals whose window has closed
-    await autoExpirePastSignals();
+    await autoExpirePastSignalsServer();
     checkAndTriggerSignalCountdownAlerts().catch(() => {});
 
     // 2. Fetch current active signal
@@ -58,10 +72,11 @@ export async function GET(request) {
       const authHeader = request.headers.get('authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
-        const payload = verifyToken(token);
-        if (payload && payload.userId) {
+        const payload = verifyJwtToken(token);
+        const userId = payload?.id || payload?.userId;
+        if (userId) {
           userTrade = await Trade.findOne({
-            user_id: payload.userId,
+            user_id: userId,
             signal_id: activeSignal._id,
             status: { $in: ['PENDING', 'RESOLVED', 'RESOLVING'] }
           }).sort({ created_at: -1 });
