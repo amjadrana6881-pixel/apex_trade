@@ -16,10 +16,13 @@ import {
   Layers, 
   Sparkles,
   ReceiptText,
-  UserCheck
+  UserCheck,
+  Calendar,
+  Zap,
+  Filter
 } from 'lucide-react';
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
-import { formatPKT } from '@/lib/timeUtils';
+import { formatPKT, getPakistanDateString } from '@/lib/timeUtils';
 
 export default function ReferralTreePage() {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function ReferralTreePage() {
   const [copied, setCopied] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [activeView, setActiveView] = useState('members'); // 'members' | 'ledger'
+  const [ledgerFilter, setLedgerFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'month'
   const [origin, setOrigin] = useState('');
   const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -80,14 +84,37 @@ export default function ReferralTreePage() {
     : data?.tree?.level3 || [];
 
   const summary = data?.summary || {
-    totalCommissions: data?.totalCommissions || 0,
+    todayCommissions: 0,
+    yesterdayCommissions: 0,
+    thisMonthCommissions: 0,
+    totalCommissions: 0,
+    cumulativeCommissions: 0,
+    todayTeamVolume: 0,
+    yesterdayTeamVolume: 0,
+    thisMonthTeamVolume: 0,
     totalTeamVolume: 0,
+    cumulativeTeamVolume: 0,
     tier1: { count: data?.directCount || 0, volume: 0, commissions: 0, rate: 10 },
     tier2: { count: data?.tree?.level2?.length || 0, volume: 0, commissions: 0, rate: 5 },
     tier3: { count: data?.tree?.level3?.length || 0, volume: 0, commissions: 0, rate: 2 }
   };
 
   const commissionsHistory = data?.commissionsHistory || [];
+
+  // Filter commissions ledger based on selected time filter
+  const todayStr = getPakistanDateString();
+  const yesterdayPkt = new Date(Date.now() + 5 * 3600000 - 86400000);
+  const yesterdayStr = getPakistanDateString(yesterdayPkt);
+  const currentMonthPrefix = todayStr.slice(0, 7);
+
+  const filteredCommissions = commissionsHistory.filter(tx => {
+    if (ledgerFilter === 'all') return true;
+    const txDateStr = getPakistanDateString(new Date(tx.created_at));
+    if (ledgerFilter === 'today') return txDateStr === todayStr;
+    if (ledgerFilter === 'yesterday') return txDateStr === yesterdayStr;
+    if (ledgerFilter === 'month') return txDateStr.startsWith(currentMonthPrefix);
+    return true;
+  });
 
   return (
     <div className="space-y-6 pb-20 md:pb-6">
@@ -98,7 +125,7 @@ export default function ReferralTreePage() {
             Affiliate Network & Commission Hub
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Build your quantitative trading team and earn 3-tier lifetime commissions on all network deposits.
+            Track your team performance, daily commission earnings, and 3-tier lifetime deposit turnover.
           </p>
         </div>
 
@@ -129,47 +156,148 @@ export default function ReferralTreePage() {
         </div>
       </div>
 
-      {/* Top 4 Summary Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Commissions Earned */}
-        <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-3xl p-5 text-white shadow-lg shadow-emerald-950/20 relative overflow-hidden">
-          <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none"></div>
-          <div className="relative z-10 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Total Commissions</span>
+      {/* SECTION 1: TIME-SLICED COMMISSION PERFORMANCE (TODAY, YESTERDAY, THIS MONTH, CUMULATIVE) */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 border border-slate-700/60 rounded-3xl p-5 sm:p-7 text-white shadow-xl shadow-slate-900/15 relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <DollarSign className="w-4 h-4" />
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black border border-emerald-500/40">
-                INSTANT PAY
-              </span>
+              <div>
+                <h3 className="text-sm font-extrabold text-white">Affiliate Commission Performance</h3>
+                <p className="text-[11px] text-slate-400">All earnings are credited instantly to your Spot Wallet</p>
+              </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-black font-mono text-white pt-1">
-              ${summary.totalCommissions.toFixed(2)}
-            </p>
-            <p className="text-[11px] text-emerald-200/80 font-medium">
-              Credited directly to Spot Wallet
-            </p>
+
+            <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 text-[10px] font-mono border border-white/15 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-blue-400" />
+              <span>PKT Standard Time (UTC+5)</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* 1. Today's Commission */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 sm:p-4 hover:border-emerald-500/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Today's Earnings</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase">
+                  TODAY
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-1">
+                +${Number(summary.todayCommissions || 0).toFixed(2)}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                From today's team deposits
+              </p>
+            </div>
+
+            {/* 2. Yesterday's Commission */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 sm:p-4 hover:border-blue-500/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Yesterday</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 text-[9px] font-black uppercase">
+                  CLOSED
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black font-mono text-white mt-1">
+                +${Number(summary.yesterdayCommissions || 0).toFixed(2)}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                Yesterday's total bonus
+              </p>
+            </div>
+
+            {/* 3. This Month's Commission */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 sm:p-4 hover:border-purple-500/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+                  <span>This Month</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-black uppercase">
+                  MONTHLY
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black font-mono text-white mt-1">
+                +${Number(summary.thisMonthCommissions || 0).toFixed(2)}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                Current month total
+              </p>
+            </div>
+
+            {/* 4. Total Cumulative Commission */}
+            <div className="bg-gradient-to-br from-emerald-600/30 to-blue-600/20 border border-emerald-400/40 rounded-2xl p-3.5 sm:p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-200 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Cumulative Total</span>
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-400 text-slate-950 text-[9px] font-black uppercase">
+                  ALL-TIME
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black font-mono text-white mt-1">
+                ${Number(summary.totalCommissions || 0).toFixed(2)}
+              </p>
+              <p className="text-[10px] text-emerald-200/80 mt-0.5 font-medium">
+                Total lifetime commissions
+              </p>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Total Team Deposit Volume */}
+      {/* SECTION 2: TEAM VOLUME & NETWORK STATS CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Today's Team Volume */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs relative overflow-hidden">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-                <span>Network Volume</span>
+                <span>Today's Turnover</span>
               </span>
               <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-extrabold border border-blue-200">
+                TODAY
+              </span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 pt-1">
+              ${Number(summary.todayTeamVolume || 0).toFixed(2)}
+            </p>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Today's downline deposits
+            </p>
+          </div>
+        </div>
+
+        {/* Total Cumulative Team Volume */}
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs relative overflow-hidden">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                <span>All-Time Volume</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-200">
                 3 TIERS
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 pt-1">
-              ${summary.totalTeamVolume.toFixed(2)}
+              ${Number(summary.totalTeamVolume || 0).toFixed(2)}
             </p>
             <p className="text-[11px] text-slate-400 font-medium">
-              Combined team deposit turnover
+              Cumulative network turnover
             </p>
           </div>
         </div>
@@ -217,7 +345,7 @@ export default function ReferralTreePage() {
         </div>
       </div>
 
-      {/* Referral Link & Code Sharing Box */}
+      {/* SECTION 3: REFERRAL LINK & CODE SHARING BOX */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2.5 max-w-xl">
@@ -264,7 +392,7 @@ export default function ReferralTreePage() {
         </div>
       </div>
 
-      {/* 3 Commission Tiers Cards */}
+      {/* SECTION 4: 3 COMMISSION TIERS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Tier 1 */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-3">
@@ -348,7 +476,7 @@ export default function ReferralTreePage() {
         </div>
       </div>
 
-      {/* VIEW 1: DOWNLINE MEMBERS DIRECTORY */}
+      {/* SECTION 5: VIEW 1 - DOWNLINE MEMBERS DIRECTORY */}
       {activeView === 'members' && (
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -466,23 +594,47 @@ export default function ReferralTreePage() {
         </div>
       )}
 
-      {/* VIEW 2: DETAILED COMMISSION EARNINGS LEDGER */}
+      {/* SECTION 6: VIEW 2 - DETAILED COMMISSION EARNINGS LEDGER WITH TIME FILTERS */}
       {activeView === 'ledger' && (
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <ReceiptText className="w-5 h-5 text-blue-600" />
-              <span>Affiliate Commission Earnings Ledger</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Detailed audit trail of all affiliate bonuses credited to your spot wallet from team activities.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <ReceiptText className="w-5 h-5 text-blue-600" />
+                <span>Affiliate Commission Earnings Ledger</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Detailed audit trail of all affiliate bonuses credited to your spot wallet from team activities.
+              </p>
+            </div>
+
+            {/* Time Filter Buttons */}
+            <div className="flex gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
+              {[
+                { id: 'all', label: 'All Time' },
+                { id: 'today', label: 'Today' },
+                { id: 'yesterday', label: 'Yesterday' },
+                { id: 'month', label: 'This Month' }
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => setLedgerFilter(filter.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    ledgerFilter === filter.id
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {commissionsHistory.length === 0 ? (
+          {filteredCommissions.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <DollarSign className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="font-semibold text-sm">No commission transactions recorded yet.</p>
+              <p className="font-semibold text-sm">No commission transactions found for this timeframe.</p>
               <p className="text-xs text-slate-400 mt-1">
                 When your downline members make approved deposits, your commissions will appear here instantly!
               </p>
@@ -492,7 +644,7 @@ export default function ReferralTreePage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px]">
-                    <th className="py-3 px-4">Date & Time</th>
+                    <th className="py-3 px-4">Date & Time (PKT)</th>
                     <th className="py-3 px-4">Source Member</th>
                     <th className="py-3 px-4">Affiliate Tier</th>
                     <th className="py-3 px-4">Source Deposit</th>
@@ -501,7 +653,7 @@ export default function ReferralTreePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {commissionsHistory.map((tx) => (
+                  {filteredCommissions.map((tx) => (
                     <tr key={tx.id || tx._id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3.5 px-4 text-slate-600 font-mono text-xs">
                         {formatPKT(tx.created_at)}
@@ -558,7 +710,7 @@ export default function ReferralTreePage() {
         </div>
       )}
 
-      {/* Safety & Financial Integrity Footer Notice */}
+      {/* SECTION 7: SAFETY & FINANCIAL INTEGRITY FOOTER NOTICE */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-white/10 text-emerald-400 border border-white/10 shrink-0">
