@@ -25,7 +25,7 @@ import {
 import { useAuth, API_BASE } from '@/app/context/AuthContext';
 import TradingViewChart from '@/app/components/TradingViewChart';
 import LiveTradePulseGraph from '@/app/components/LiveTradePulseGraph';
-import { formatPKT } from '@/lib/timeUtils';
+import { formatPKT, getSignalTimeWindow } from '@/lib/timeUtils';
 
 function TradingContent() {
   const searchParams = useSearchParams();
@@ -95,17 +95,35 @@ function TradingContent() {
     };
   }, []);
 
+  const [activeSignalTiming, setActiveSignalTiming] = useState(null);
+  const [hasUserExecutedSignal, setHasUserExecutedSignal] = useState(false);
+
   // 2. Fetch Active Daily Signal & VIP Staking Status
   useEffect(() => {
-    fetch(`${API_BASE}/api/signals/active`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          setActiveSignal(data.data);
-        }
-      })
-      .catch(console.error);
+    const fetchSignal = () => {
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      fetch(`${API_BASE}/api/signals/active`, { headers })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setActiveSignal(data.data || null);
+            if (data.timing) {
+              setActiveSignalTiming(data.timing);
+              setHasUserExecutedSignal(Boolean(data.timing.hasUserExecuted));
+            }
+          }
+        })
+        .catch(console.error);
+    };
+
+    fetchSignal();
+    const interval = setInterval(fetchSignal, 5000);
+    return () => clearInterval(interval);
+  }, [token]);
+
+  useEffect(() => {
     if (token) {
       fetch(`${API_BASE}/api/investments/my`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -352,41 +370,8 @@ function TradingContent() {
 
   const isSignalWindowActive = () => {
     if (!activeSignal || activeSignal.status !== 'ACTIVE') return false;
-    try {
-      const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const pktNow = new Date(utc + (3600000 * 5)); // PKT (UTC+5)
-
-      if (activeSignal.scheduled_date) {
-        const year = pktNow.getFullYear();
-        const month = String(pktNow.getMonth() + 1).padStart(2, '0');
-        const day = String(pktNow.getDate()).padStart(2, '0');
-        const todayPktStr = `${year}-${month}-${day}`;
-        if (activeSignal.scheduled_date !== todayPktStr) {
-          return false;
-        }
-      }
-
-      const currentHour = pktNow.getHours();
-      const currentMinute = pktNow.getMinutes();
-      const currentTotalMins = currentHour * 60 + currentMinute;
-
-      const clean = (activeSignal.execution_time_pst || '').toUpperCase().replace(/\(PST\)|\(PKT\)|PST|PKT/g, '').trim();
-      const match = clean.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-      if (!match) return true;
-
-      let sigHour = parseInt(match[1], 10);
-      const sigMin = parseInt(match[2], 10);
-      const meridiem = match[3];
-      if (meridiem === 'PM' && sigHour < 12) sigHour += 12;
-      if (meridiem === 'AM' && sigHour === 12) sigHour = 0;
-
-      const signalTotalMins = sigHour * 60 + sigMin;
-      // Active if within 10 mins before to 30 mins after scheduled signal time
-      return (currentTotalMins >= signalTotalMins - 10) && (currentTotalMins <= signalTotalMins + 30);
-    } catch (e) {
-      return false;
-    }
+    const win = getSignalTimeWindow(activeSignal);
+    return win.isLiveWindow;
   };
 
   const isMatchingActiveSignal = Boolean(activeSignal && 
@@ -394,7 +379,7 @@ function TradingContent() {
     activeSignal.order_type?.toUpperCase() === tradeType?.toUpperCase());
 
   const isLiveSignalWindow = isSignalWindowActive();
-  const isOfficialLiveTrade = isMatchingActiveSignal && isLiveSignalWindow;
+  const isOfficialLiveTrade = isMatchingActiveSignal && isLiveSignalWindow && !hasUserExecutedSignal;
 
   const payoutRate = isMatchingActiveSignal && (activeSignal.profit_percentage > 0 || activeSignal.investment_profit_percentage > 0)
     ? (hasVipBoost ? (activeSignal.investment_profit_percentage || (activeSignal.profit_percentage * 1.6) || 8.50) : activeSignal.profit_percentage)
@@ -405,36 +390,52 @@ function TradingContent() {
       
       {/* Active Signal Notice Banner */}
       {activeSignal && (
-        <div className="bg-blue-50 border border-blue-200 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-2xs">
+        <div className={`border rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-2xs ${
+          hasUserExecutedSignal
+            ? 'bg-emerald-50 border-emerald-200'
+            : isLiveSignalWindow
+            ? 'bg-emerald-500/10 border-emerald-500/40 animate-pulse'
+            : 'bg-blue-50 border-blue-200'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0">
-              <Zap className="w-5 h-5" />
+            <div className={`w-10 h-10 rounded-2xl text-white flex items-center justify-center font-bold shrink-0 ${
+              hasUserExecutedSignal ? 'bg-emerald-600' : isLiveSignalWindow ? 'bg-emerald-600' : 'bg-blue-600'
+            }`}>
+              {hasUserExecutedSignal ? <CheckCircle2 className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-blue-700 uppercase">Today's Official Signal</span>
+                <span className={`text-xs font-black uppercase ${
+                  hasUserExecutedSignal ? 'text-emerald-700' : isLiveSignalWindow ? 'text-emerald-700 font-extrabold' : 'text-blue-700'
+                }`}>
+                  {hasUserExecutedSignal ? "Today's Signal Completed" : isLiveSignalWindow ? '● Live Signal Active Now' : "Today's Official Signal"}
+                </span>
                 <span className="text-[11px] font-bold text-slate-500">{activeSignal.execution_time_pst}</span>
               </div>
               <p className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">
-                {activeSignal.instrument} • {activeSignal.order_type} MARKET • {Math.floor((activeSignal.duration_seconds || 900) / 60)} Mins Duration
+                {activeSignal.instrument} • {activeSignal.order_type} MARKET • {Math.floor((activeSignal.duration_seconds || 180) / 60)} Mins ({activeSignal.duration_seconds || 180}s)
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              setSelectedPair(activeSignal.instrument.replace('/', ''));
-              setTradeType(activeSignal.order_type);
-              setDuration(activeSignal.duration_seconds || 900);
-              if (effectiveTradeBal > 0) {
-                setTradeAmount(Math.floor(effectiveTradeBal));
-              }
-              setShowConfirmModal(true);
-            }}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold whitespace-nowrap shadow-sm cursor-pointer"
-          >
-            Apply & Execute Signal
-          </button>
+          {!hasUserExecutedSignal && (
+            <button
+              onClick={() => {
+                setSelectedPair(activeSignal.instrument.replace('/', ''));
+                setTradeType(activeSignal.order_type);
+                setDuration(activeSignal.duration_seconds || 180);
+                if (effectiveTradeBal > 0) {
+                  setTradeAmount(Math.floor(effectiveTradeBal));
+                }
+                setShowConfirmModal(true);
+              }}
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-white text-xs font-extrabold whitespace-nowrap shadow-sm cursor-pointer ${
+                isLiveSignalWindow ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {isLiveSignalWindow ? 'Execute Live Signal Now' : 'Apply & Prepare Signal'}
+            </button>
+          )}
         </div>
       )}
 

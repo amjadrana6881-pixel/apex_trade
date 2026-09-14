@@ -13,6 +13,7 @@ const SignalSchema = new mongoose.Schema({
   outcome: { type: String, enum: ['WIN', 'LOSS'], default: 'WIN' },
   status: { type: String, enum: ['ACTIVE', 'EXPIRED', 'ARCHIVED'], default: 'ACTIVE' },
   disclaimer: { type: String, default: 'Disclaimer: Forex and CFD trading involve high risk. Execute only during official signal window.' },
+  scheduled_date: { type: String, default: '' },
   created_at: { type: Date, default: Date.now }
 });
 

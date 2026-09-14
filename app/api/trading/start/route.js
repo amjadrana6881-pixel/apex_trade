@@ -63,7 +63,14 @@ export async function POST(request) {
       const sigType = activeSignal.order_type.toUpperCase();
       const isCorrectWindow = isCurrentlySignalTime(activeSignal);
 
-      if (cleanPair === sigPair && type.toUpperCase() === sigType && isCorrectWindow) {
+      // Verify user has not already executed this daily signal
+      const alreadyExecutedSignal = await Trade.findOne({
+        user_id: freshUser._id,
+        signal_id: activeSignal._id,
+        status: { $in: ['PENDING', 'RESOLVED', 'RESOLVING'] }
+      });
+
+      if (cleanPair === sigPair && type.toUpperCase() === sigType && isCorrectWindow && !alreadyExecutedSignal) {
         isSignalTrade = true;
         signalId = activeSignal._id;
         expectedOutcome = activeSignal.outcome || 'WIN';

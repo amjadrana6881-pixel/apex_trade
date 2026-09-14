@@ -3,9 +3,10 @@ import { requireAuth } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
+import Deposit from '@/models/Deposit';
 
 function maskEmail(email) {
-  if (!email || !email.includes('@')) return email;
+  if (!email || !email.includes('@')) return email || '—';
   const [name, domain] = email.split('@');
   if (name.length <= 2) return `${name[0]}*@${domain}`;
   return `${name.substring(0, 2)}***${name.slice(-1)}@${domain}`;
@@ -18,6 +19,9 @@ export async function GET(request) {
   try {
     await connectToDatabase();
     const freshUser = await User.findById(user._id);
+    if (!freshUser) {
+      return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
+    }
 
     // Tier 1 (Direct referrals)
     const level1 = await User.find({ referred_by: freshUser.referral_code })
@@ -43,9 +47,148 @@ export async function GET(request) {
       }
     }
 
-    // Total referral earnings
-    const bonusTxs = await Transaction.find({ user_id: freshUser._id, type: 'REFERRAL_BONUS' });
-    const totalCommissions = bonusTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    // Collect all member IDs across Tier 1, 2, and 3
+    const allMembers = [...level1, ...level2, ...level3];
+    const allMemberIds = allMembers.map(m => m._id);
+
+    // Fetch all approved deposits made by all downline members
+    const memberDeposits = allMemberIds.length > 0 
+      ? await Deposit.find({ user_id: { $in: allMemberIds }, status: 'APPROVED' })
+      : [];
+
+    // Map depositId -> deposit object
+    const depositMap = new Map();
+    const memberDepositsMap = new Map(); // userId -> total approved deposit amount
+    const memberDepositCountMap = new Map();
+
+    memberDeposits.forEach(dep => {
+      depositMap.set(dep._id.toString(), dep);
+      const uId = dep.user_id.toString();
+      memberDepositsMap.set(uId, (memberDepositsMap.get(uId) || 0) + Number(dep.amount || 0));
+      memberDepositCountMap.set(uId, (memberDepositCountMap.get(uId) || 0) + 1);
+    });
+
+    // Fetch all referral commission bonus transactions received by freshUser
+    const bonusTxs = await Transaction.find({ 
+      user_id: freshUser._id, 
+      type: 'REFERRAL_BONUS' 
+    }).sort({ created_at: -1 });
+
+    // Calculate commission earned per downline member
+    const memberCommissionMap = new Map(); // userId -> commission amount
+
+    const commissionsHistory = bonusTxs.map(tx => {
+      let sourceUserId = null;
+      let sourceUserName = 'Downline Trader';
+      let sourceUserEmail = '';
+      let depositAmount = 0;
+      let tierLevel = 1;
+
+      // Check if reference_id matches an approved deposit
+      if (tx.reference_id && depositMap.has(tx.reference_id)) {
+        const dep = depositMap.get(tx.reference_id);
+        sourceUserId = dep.user_id.toString();
+        depositAmount = Number(dep.amount || 0);
+      }
+
+      // Try matching by member in our downline
+      if (sourceUserId) {
+        const m = allMembers.find(mem => mem._id.toString() === sourceUserId);
+        if (m) {
+          sourceUserName = m.name;
+          sourceUserEmail = maskEmail(m.email);
+        }
+      } else {
+        // Fallback: parse name from description e.g. "Level 1 Commission from Amir javed deposit ($100)"
+        const match = tx.description?.match(/from\s+(.*?)\s+deposit/i);
+        if (match && match[1]) {
+          const parsedName = match[1].trim();
+          const m = allMembers.find(mem => mem.name?.toLowerCase() === parsedName.toLowerCase());
+          if (m) {
+            sourceUserId = m._id.toString();
+            sourceUserName = m.name;
+            sourceUserEmail = maskEmail(m.email);
+          } else {
+            sourceUserName = parsedName;
+          }
+        }
+      }
+
+      // Detect tier level from description
+      if (tx.description?.includes('Level 2') || tx.description?.includes('Tier 2')) {
+        tierLevel = 2;
+      } else if (tx.description?.includes('Level 3') || tx.description?.includes('Tier 3')) {
+        tierLevel = 3;
+      } else {
+        tierLevel = 1;
+      }
+
+      // Accumulate to memberCommissionMap if source user identified
+      if (sourceUserId) {
+        memberCommissionMap.set(
+          sourceUserId, 
+          Number(((memberCommissionMap.get(sourceUserId) || 0) + Number(tx.amount || 0)).toFixed(2))
+        );
+      }
+
+      return {
+        id: tx._id.toString(),
+        amount: Number(tx.amount || 0),
+        description: tx.description,
+        reference_id: tx.reference_id,
+        status: tx.status,
+        created_at: tx.created_at,
+        tier: tierLevel,
+        depositAmount,
+        sourceUser: {
+          id: sourceUserId,
+          name: sourceUserName,
+          email: sourceUserEmail
+        }
+      };
+    });
+
+    // Helper to enrich member object
+    const enrichMember = (m, tierNum, defaultPct) => {
+      const uId = m._id.toString();
+      const totalDeposited = Number((memberDepositsMap.get(uId) || 0).toFixed(2));
+      const depositCount = memberDepositCountMap.get(uId) || 0;
+      let commissionEarned = Number((memberCommissionMap.get(uId) || 0).toFixed(2));
+
+      // If no direct bonus tx was matched yet but member has deposits, calculate based on tier pct
+      if (commissionEarned === 0 && totalDeposited > 0) {
+        commissionEarned = Number(((totalDeposited * defaultPct) / 100).toFixed(2));
+      }
+
+      return {
+        _id: m._id.toString(),
+        id: m._id.toString(),
+        name: m.name,
+        email: maskEmail(m.email),
+        referral_code: m.referral_code,
+        status: m.status || 'ACTIVE',
+        created_at: m.created_at,
+        tier: tierNum,
+        tierRatePct: defaultPct,
+        totalDeposited,
+        depositCount,
+        commissionEarned
+      };
+    };
+
+    const enrichedL1 = level1.map(m => enrichMember(m, 1, 10));
+    const enrichedL2 = level2.map(m => enrichMember(m, 2, 5));
+    const enrichedL3 = level3.map(m => enrichMember(m, 3, 2));
+
+    const totalCommissions = Number(bonusTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0).toFixed(2));
+    const tier1Volume = Number(enrichedL1.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
+    const tier2Volume = Number(enrichedL2.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
+    const tier3Volume = Number(enrichedL3.reduce((sum, m) => sum + m.totalDeposited, 0).toFixed(2));
+    const totalTeamVolume = Number((tier1Volume + tier2Volume + tier3Volume).toFixed(2));
+
+    const tier1Commissions = Number(enrichedL1.reduce((sum, m) => sum + m.commissionEarned, 0).toFixed(2));
+    const tier2Commissions = Number(enrichedL2.reduce((sum, m) => sum + m.commissionEarned, 0).toFixed(2));
+    const tier3Commissions = Number(enrichedL3.reduce((sum, m) => sum + m.commissionEarned, 0).toFixed(2));
 
     return NextResponse.json({
       success: true,
@@ -53,12 +196,19 @@ export async function GET(request) {
         referralCode: freshUser.referral_code,
         directCount: level1.length,
         totalTeamCount: level1.length + level2.length + level3.length,
-        totalCommissions,
+        summary: {
+          totalCommissions,
+          totalTeamVolume,
+          tier1: { count: level1.length, volume: tier1Volume, commissions: tier1Commissions, rate: 10 },
+          tier2: { count: level2.length, volume: tier2Volume, commissions: tier2Commissions, rate: 5 },
+          tier3: { count: level3.length, volume: tier3Volume, commissions: tier3Commissions, rate: 2 }
+        },
         tree: {
-          level1: level1.map(u => ({ ...u.toObject(), email: maskEmail(u.email) })),
-          level2: level2.map(u => ({ ...u.toObject(), email: maskEmail(u.email) })),
-          level3: level3.map(u => ({ ...u.toObject(), email: maskEmail(u.email) }))
-        }
+          level1: enrichedL1,
+          level2: enrichedL2,
+          level3: enrichedL3
+        },
+        commissionsHistory
       }
     });
   } catch (err) {
