@@ -202,7 +202,7 @@ export default function AdminDashboardPage() {
   };
 
   const [authRequired, setAuthRequired] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('roman@nabil.com');
+  const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminAuthLoading, setAdminAuthLoading] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState('');
@@ -3931,6 +3931,7 @@ export default function AdminDashboardPage() {
                 <input
                   type="email"
                   required
+                  placeholder="Enter administrator email"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-blue-500"
