@@ -1118,7 +1118,7 @@ function TradingContent() {
               </div>
               <div className="flex justify-between text-slate-500">
                 <span>Updated Spot Balance:</span>
-                <span className="font-bold font-mono text-slate-900">${userBal.toFixed(2)}</span>
+                <span className="font-bold font-mono text-slate-900">${walletBal.toFixed(2)}</span>
               </div>
             </div>
 
